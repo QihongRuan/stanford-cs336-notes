@@ -80,22 +80,26 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <script>document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('pre code').forEach(b=>{try{hljs.highlightElement(b)}catch(e){}})});</script>
 
-</head><body><div class="layout"><nav class="sidebar"><h2>CS336 Lectures</h2><a href="index.html">Home</a><a href="deepdives.html">🧠 Algorithm Deep Dives</a><a href="assignments.html">🛠️ Assignments — Do the Work</a><a href="lec01.html"><span class="num">01</span>Overview and Tokenization</a><a href="lec02.html" class="active"><span class="num">02</span>PyTorch, Resource Accounting</a><a href="lec03.html"><span class="num">03</span>Architectures, Hyperparameters</a><a href="lec04.html"><span class="num">04</span>Mixture of Experts</a><a href="lec05.html"><span class="num">05</span>GPUs</a><a href="lec06.html"><span class="num">06</span>Kernels, Triton</a><a href="lec07.html"><span class="num">07</span>Parallelism 1</a><a href="lec08.html"><span class="num">08</span>Parallelism 2</a><a href="lec09.html"><span class="num">09</span>Scaling Laws 1</a><a href="lec10.html"><span class="num">10</span>Inference</a><a href="lec11.html"><span class="num">11</span>Scaling Laws 2</a><a href="lec12.html"><span class="num">12</span>Evaluation</a><a href="lec13.html"><span class="num">13</span>Data 1</a><a href="lec14.html"><span class="num">14</span>Data 2</a><a href="lec15.html"><span class="num">15</span>Alignment — SFT/RLHF</a><a href="lec16.html"><span class="num">16</span>Alignment — RL 1</a><a href="lec17.html"><span class="num">17</span>Alignment — RL 2</a><a href="https://github.com/QihongRuan/stanford-cs336-notes" target="_blank" rel="noopener" class="ghside">⭐ Star on GitHub</a></nav><main class="content"><div class="crumbs"><a href="../">Qihong Ruan</a> / <a href="index.html">CS336 Notes</a> / Lecture 02</div><h1>Lecture 02: PyTorch, Resource Accounting</h1><p class="meta">Stanford CS336 · Spring 2025 · 1:19:22 · <a href="https://www.youtube.com/watch?v=msHyYioAyNE" target="_blank">Watch on YouTube ↗</a></p><div class="banner">📝 Auto-generated notes from the full lecture video (slides, equations, and live code) and transcript. Verify critical details against the source.</div><div class="embed"><a href="https://www.youtube.com/watch?v=msHyYioAyNE" target="_blank" rel="noopener" style="background-image:url(https://i.ytimg.com/vi/msHyYioAyNE/hqdefault.jpg)"><span class="play"><span>▶ Watch on YouTube</span></span></a></div><p><strong>TL;DR</strong>
-- This lecture focuses on building language models from scratch using PyTorch, emphasizing efficiency and resource accounting (memory and compute).
-- Key topics include PyTorch tensors, floating-point precision types (float32, float16, bfloat16, fp8), memory accounting, and compute accounting (FLOPs).
-- The lecture introduces <code>einops</code> for robust tensor manipulation and discusses the computational cost of forward and backward passes in neural networks.
-- It also covers parameter initialization strategies, data loading, optimizers (SGD, Adam, etc.), and best practices like checkpointing and mixed-precision training.</p>
-<p><strong>Key concepts</strong>
-- PyTorch tensors as fundamental building blocks.
-- Floating-point precision and its impact on memory and numerical stability.
-- Memory accounting: how to calculate memory usage for tensors.
-- Compute accounting: understanding FLOPs (floating-point operations) and FLOP/s (FLOPs per second).
-- <code>einops</code> for dimension-aware tensor operations.
-- Computational cost of forward and backward passes (gradients).
-- Parameter initialization techniques (e.g., Xavier initialization).
-- Optimizers (SGD, Adam, AdaGrad, RMSprop).
-- Checkpointing for fault tolerance.
-- Mixed-precision training for efficiency.</p>
+</head><body><div class="layout"><nav class="sidebar"><h2>CS336 Lectures</h2><a href="index.html">Home</a><a href="deepdives.html">🧠 Algorithm Deep Dives</a><a href="assignments.html">🛠️ Assignments — Do the Work</a><a href="lec01.html"><span class="num">01</span>Overview and Tokenization</a><a href="lec02.html" class="active"><span class="num">02</span>PyTorch, Resource Accounting</a><a href="lec03.html"><span class="num">03</span>Architectures, Hyperparameters</a><a href="lec04.html"><span class="num">04</span>Mixture of Experts</a><a href="lec05.html"><span class="num">05</span>GPUs</a><a href="lec06.html"><span class="num">06</span>Kernels, Triton</a><a href="lec07.html"><span class="num">07</span>Parallelism 1</a><a href="lec08.html"><span class="num">08</span>Parallelism 2</a><a href="lec09.html"><span class="num">09</span>Scaling Laws 1</a><a href="lec10.html"><span class="num">10</span>Inference</a><a href="lec11.html"><span class="num">11</span>Scaling Laws 2</a><a href="lec12.html"><span class="num">12</span>Evaluation</a><a href="lec13.html"><span class="num">13</span>Data 1</a><a href="lec14.html"><span class="num">14</span>Data 2</a><a href="lec15.html"><span class="num">15</span>Alignment — SFT/RLHF</a><a href="lec16.html"><span class="num">16</span>Alignment — RL 1</a><a href="lec17.html"><span class="num">17</span>Alignment — RL 2</a><a href="https://github.com/QihongRuan/stanford-cs336-notes" target="_blank" rel="noopener" class="ghside">⭐ Star on GitHub</a></nav><main class="content"><div class="crumbs"><a href="../">Qihong Ruan</a> / <a href="index.html">CS336 Notes</a> / Lecture 02</div><h1>Lecture 02: PyTorch, Resource Accounting</h1><p class="meta">Stanford CS336 · Spring 2025 · 1:19:22 · <a href="https://www.youtube.com/watch?v=msHyYioAyNE" target="_blank">Watch on YouTube ↗</a></p><div class="banner">📝 Auto-generated notes from the full lecture video (slides, equations, and live code) and transcript. Verify critical details against the source.</div><div class="embed"><a href="https://www.youtube.com/watch?v=msHyYioAyNE" target="_blank" rel="noopener" style="background-image:url(https://i.ytimg.com/vi/msHyYioAyNE/hqdefault.jpg)"><span class="play"><span>▶ Watch on YouTube</span></span></a></div><p><strong>TL;DR</strong></p>
+<ul>
+<li>This lecture focuses on building language models from scratch using PyTorch, emphasizing efficiency and resource accounting (memory and compute).</li>
+<li>Key topics include PyTorch tensors, floating-point precision types (float32, float16, bfloat16, fp8), memory accounting, and compute accounting (FLOPs).</li>
+<li>The lecture introduces <code>einops</code> for robust tensor manipulation and discusses the computational cost of forward and backward passes in neural networks.</li>
+<li>It also covers parameter initialization strategies, data loading, optimizers (SGD, Adam, etc.), and best practices like checkpointing and mixed-precision training.</li>
+</ul>
+<p><strong>Key concepts</strong></p>
+<ul>
+<li>PyTorch tensors as fundamental building blocks.</li>
+<li>Floating-point precision and its impact on memory and numerical stability.</li>
+<li>Memory accounting: how to calculate memory usage for tensors.</li>
+<li>Compute accounting: understanding FLOPs (floating-point operations) and FLOP/s (FLOPs per second).</li>
+<li><code>einops</code> for dimension-aware tensor operations.</li>
+<li>Computational cost of forward and backward passes (gradients).</li>
+<li>Parameter initialization techniques (e.g., Xavier initialization).</li>
+<li>Optimizers (SGD, Adam, AdaGrad, RMSprop).</li>
+<li>Checkpointing for fault tolerance.</li>
+<li>Mixed-precision training for efficiency.</li>
+</ul>
 <hr />
 <h3 id="0000-introduction-and-lecture-overview">[00:00] Introduction and Lecture Overview</h3>
 <figure class="slide"><img src="figs/lec02/00016.jpg" loading="lazy" alt="The slide shows the title &quot;Last lecture: overview, tokenization&quot; highlighted in yellow."><figcaption><span class="ft">0:16</span> The slide shows the title &quot;Last lecture: overview, tokenization&quot; highlighted in yellow.</figcaption></figure>
@@ -109,14 +113,18 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <figure class="slide"><img src="figs/lec02/00259.jpg" loading="lazy" alt="The slide shows &quot;Illustrated Transformer&quot; highlighted, indicating a topic not covered."><figcaption><span class="ft">4:19</span> The slide shows &quot;Illustrated Transformer&quot; highlighted, indicating a topic not covered.</figcaption></figure>
 
 <p>The lecture begins with "napkin math" questions to motivate the importance of resource accounting.</p>
-<p><strong>Question 1:</strong> How long would it it take to train a 70 billion parameter dense transformer model on 15 trillion tokens on 1024 H100s?</p>
-<p><strong>Reasoning:</strong>
-1.  <strong>Total FLOPs needed:</strong>
-    *   A common rule of thumb for training transformer models is that the total FLOPs required is $6 \times (\text{number of parameters}) \times (\text{number of tokens})$.
-    *   For a 70 billion parameter model and 15 trillion tokens:
-        $6 \times (70 \times 10^9) \times (15 \times 10^{12}) = 6.3 \times 10^{24}$ FLOPs.
-    *   The "6" factor will be explained later in the lecture.</p>
-<ol start="2">
+<p><strong>Question 1:</strong> How long would it take to train a 70 billion parameter dense transformer model on 15 trillion tokens on 1024 H100s?</p>
+<p><strong>Reasoning:</strong></p>
+<ol>
+<li>
+<p><strong>Total FLOPs needed:</strong></p>
+<ul>
+<li>A common rule of thumb for training transformer models is that the total FLOPs required is $6 \times (\text{number of parameters}) \times (\text{number of tokens})$.</li>
+<li>For a 70 billion parameter model and 15 trillion tokens:
+    $6 \times (70 \times 10^9) \times (15 \times 10^{12}) = 6.3 \times 10^{24}$ FLOPs.</li>
+<li>The "6" factor will be explained later in the lecture.</li>
+</ul>
+</li>
 <li>
 <p><strong>FLOPs per day from hardware:</strong></p>
 <ul>
@@ -136,22 +144,28 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 </li>
 </ol>
 <p><strong>Question 2:</strong> What is the largest model you can train on 8 H100s using AdamW (naively)?</p>
-<p><strong>Reasoning:</strong>
-1.  <strong>Memory per H100:</strong> An H100 has 80 GB of HBM (High Bandwidth Memory).
-2.  <strong>Bytes per parameter:</strong> For parameters, gradients, and optimizer state (AdamW), you typically need 16 bytes per parameter (4 bytes for the parameter, 4 for its gradient, and 8 for AdamW's two momentum states).
-3.  <strong>Total parameters:</strong>
-    *   Total HBM = (Number of H100s) $\times$ (Memory per H100) = $8 \times 80 \times 10^9$ bytes.
-    *   Number of parameters = (Total HBM) / (Bytes per parameter)
-    *   Number of parameters = $(8 \times 80 \times 10^9) / 16 = 40 \times 10^9 = 40$ billion parameters.
-    *   This calculation is rough because it doesn't account for activations, which depend on batch size and sequence length.</p>
+<p><strong>Reasoning:</strong></p>
+<ol>
+<li><strong>Memory per H100:</strong> An H100 has 80 GB of HBM (High Bandwidth Memory).</li>
+<li><strong>Bytes per parameter:</strong> For parameters, gradients, and optimizer state (AdamW), you typically need 16 bytes per parameter (4 bytes for the parameter, 4 for its gradient, and 8 for AdamW's two momentum states).</li>
+<li><strong>Total parameters:</strong><ul>
+<li>Total HBM = (Number of H100s) $\times$ (Memory per H100) = $8 \times 80 \times 10^9$ bytes.</li>
+<li>Number of parameters = (Total HBM) / (Bytes per parameter)</li>
+<li>Number of parameters = $(8 \times 80 \times 10^9) / 16 = 40 \times 10^9 = 40$ billion parameters.</li>
+<li>This calculation is rough because it doesn't account for activations, which depend on batch size and sequence length.</li>
+</ul>
+</li>
+</ol>
 <p><strong>Why efficiency matters:</strong>
 These "back-of-the-envelope" calculations are crucial because large-scale model training directly translates to significant costs (dollars, energy). Understanding resource usage helps optimize these costs.</p>
 <p><strong>Note on Transformers:</strong>
 The lecture will not delve deeply into the Transformer architecture itself. There are excellent external resources for learning about Transformers, including Assignment 1 handout, mathematical descriptions, and illustrated guides (e.g., Illustrated Transformer, Illustrated GPT-2). The focus will be on simpler models to understand primitives and resource accounting.</p>
-<p><strong>What knowledge to take away:</strong>
--   <strong>Mechanics:</strong> Straightforward PyTorch usage.
--   <strong>Mindset:</strong> Resource accounting (remember to do it).
--   <strong>Intuitions:</strong> Broad strokes (not specific to large models).</p>
+<p><strong>What knowledge to take away:</strong></p>
+<ul>
+<li><strong>Mechanics:</strong> Straightforward PyTorch usage.</li>
+<li><strong>Mindset:</strong> Resource accounting (remember to do it).</li>
+<li><strong>Intuitions:</strong> Broad strokes (not specific to large models).</li>
+</ul>
 <h3 id="0510-memory-accounting">[05:10] Memory Accounting</h3>
 <h4 id="0520-tensors-basics">[05:20] Tensors Basics</h4>
 <figure class="slide"><img src="figs/lec02/00317.jpg" loading="lazy" alt="The slide shows the title &quot;Memory accounting&quot; and a list of related functions."><figcaption><span class="ft">5:17</span> The slide shows the title &quot;Memory accounting&quot; and a list of related functions.</figcaption></figure>
@@ -178,15 +192,19 @@ The lecture will not delve deeply into the Transformer architecture itself. Ther
 <figure class="slide"><img src="figs/lec02/00568.jpg" loading="lazy" alt="The slide shows a diagram of the float16 data type and code demonstrating its properties."><figcaption><span class="ft">9:28</span> The slide shows a diagram of the float16 data type and code demonstrating its properties.</figcaption></figure>
 
 <p>Almost everything (parameters, gradients, activations, optimizer states) is stored as floating-point numbers.</p>
-<p><strong>Float32 (Single-precision)</strong>
--   The default data type in PyTorch is <code>float32</code> (also known as FP32 or single precision).
--   It uses 32 bits: 1 for sign, 8 for exponent, and 23 for fraction.
--   <code>float32</code> is the baseline for deep learning. Scientific computing often uses <code>float64</code> (double precision).
--   Deep learning is "sloppier" and <code>float32</code> is usually sufficient.</p>
+<p><strong>Float32 (Single-precision)</strong></p>
+<ul>
+<li>The default data type in PyTorch is <code>float32</code> (also known as FP32 or single precision).</li>
+<li>It uses 32 bits: 1 for sign, 8 for exponent, and 23 for fraction.</li>
+<li><code>float32</code> is the baseline for deep learning. Scientific computing often uses <code>float64</code> (double precision).</li>
+<li>Deep learning is "sloppier" and <code>float32</code> is usually sufficient.</li>
+</ul>
 <p><strong>Memory usage of tensors:</strong>
-Memory usage is determined by:
-1.  The number of values (elements) in the tensor.
-2.  The data type of each value.</p>
+Memory usage is determined by:</p>
+<ol>
+<li>The number of values (elements) in the tensor.</li>
+<li>The data type of each value.</li>
+</ol>
 <pre><code class="language-python">def tensors_memory():
     x = torch.zeros(4, 8) # @inspect x
     assert x.dtype == torch.float32 # Default type
@@ -200,16 +218,20 @@ Memory usage is determined by:
 </code></pre>
 <p>The memory usage for a <code>torch.zeros(4, 8)</code> tensor is $32 \text{ elements} \times 4 \text{ bytes/element} = 128 \text{ bytes}$.
 A single matrix in a GPT-3 feedforward layer can consume 2.3 GB of memory.</p>
-<p><strong>Float16 (Half-precision)</strong>
--   <code>float16</code> (also known as FP16 or half-precision) uses 16 bits: 1 for sign, 5 for exponent, and 10 for fraction.
--   It cuts memory usage by half.
--   However, its dynamic range is limited, especially for very small or very large numbers. This can lead to underflow/overflow issues and numerical instability during training, especially for large models.</p>
-<p><strong>Bfloat16 (Brain float)</strong>
--   Developed by Google in 2018 to address the dynamic range issue of <code>float16</code> for deep learning.
--   <code>bfloat16</code> uses 16 bits: 1 for sign, 8 for exponent, and 7 for fraction.
--   It has the same memory footprint as <code>float16</code> but the same dynamic range as <code>float32</code> (due to the 8-bit exponent).
--   The resolution (fraction bits) is worse than <code>float16</code>, but this matters less for deep learning.
--   <code>bfloat16</code> is generally preferred over <code>float16</code> for deep learning computations due to its better dynamic range.</p>
+<p><strong>Float16 (Half-precision)</strong></p>
+<ul>
+<li><code>float16</code> (also known as FP16 or half-precision) uses 16 bits: 1 for sign, 5 for exponent, and 10 for fraction.</li>
+<li>It cuts memory usage by half.</li>
+<li>However, its dynamic range is limited, especially for very small or very large numbers. This can lead to underflow/overflow issues and numerical instability during training, especially for large models.</li>
+</ul>
+<p><strong>Bfloat16 (Brain float)</strong></p>
+<ul>
+<li>Developed by Google in 2018 to address the dynamic range issue of <code>float16</code> for deep learning.</li>
+<li><code>bfloat16</code> uses 16 bits: 1 for sign, 8 for exponent, and 7 for fraction.</li>
+<li>It has the same memory footprint as <code>float16</code> but the same dynamic range as <code>float32</code> (due to the 8-bit exponent).</li>
+<li>The resolution (fraction bits) is worse than <code>float16</code>, but this matters less for deep learning.</li>
+<li><code>bfloat16</code> is generally preferred over <code>float16</code> for deep learning computations due to its better dynamic range.</li>
+</ul>
 <pre><code class="language-python">def tensors_memory():
     # float16
     x = torch.zeros(4, 8, dtype=torch.float16) # @inspect x
@@ -229,14 +251,18 @@ A single matrix in a GPT-3 feedforward layer can consume 2.3 GB of memory.</p>
     # float16_info = torch.finfo(torch.float16) # @inspect float16_info
     # bfloat16_info = torch.finfo(torch.bfloat16) # @inspect bfloat16_info
 </code></pre>
-<p><strong>FP8 (8-bit float)</strong>
--   Developed by Nvidia in 2022, motivated by machine learning workloads.
--   Uses 8 bits. H100s support two variants of FP8: E4M3 (4-bit exponent, 3-bit mantissa) and E5M2 (5-bit exponent, 2-bit mantissa).
--   FP8 is very crude and has even more limited precision.</p>
-<p><strong>Implications on training:</strong>
--   <strong>Training with <code>float32</code>:</strong> Works, but requires lots of memory. It's the safest option.
--   <strong>Training with <code>fp8</code>, <code>float16</code>, and <code>bfloat16</code>:</strong> Risky, and can lead to instability (underflow/overflow).
--   <strong>Solution:</strong> Use mixed-precision training. This involves using different precision types for different parts of the model (e.g., <code>float32</code> for attention, <code>bfloat16</code> for feedforward passes).</p>
+<p><strong>FP8 (8-bit float)</strong></p>
+<ul>
+<li>Developed by Nvidia in 2022, motivated by machine learning workloads.</li>
+<li>Uses 8 bits. H100s support two variants of FP8: E4M3 (4-bit exponent, 3-bit mantissa) and E5M2 (5-bit exponent, 2-bit mantissa).</li>
+<li>FP8 is very crude and has even more limited precision.</li>
+</ul>
+<p><strong>Implications on training:</strong></p>
+<ul>
+<li><strong>Training with <code>float32</code>:</strong> Works, but requires lots of memory. It's the safest option.</li>
+<li><strong>Training with <code>fp8</code>, <code>float16</code>, and <code>bfloat16</code>:</strong> Risky, and can lead to instability (underflow/overflow).</li>
+<li><strong>Solution:</strong> Use mixed-precision training. This involves using different precision types for different parts of the model (e.g., <code>float32</code> for attention, <code>bfloat16</code> for feedforward passes).</li>
+</ul>
 <p><strong>Q&amp;A on mixed precision:</strong>
 The general rule of thumb is to use <code>float32</code> for parameters and optimizer states (which accumulate over time and require higher precision) and <code>bfloat16</code> for transient computations like activations in forward passes.</p>
 <h3 id="012000-compute-accounting">[01:20:00] Compute Accounting</h3>
@@ -272,11 +298,15 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 <p>The example shows how to check for GPU availability, move a tensor to GPU, or create one directly on GPU. It also demonstrates how to verify memory allocation.</p>
 <h4 id="012500-tensor-operations">[01:25:00] Tensor Operations</h4>
 <p>Most tensors are created by performing operations on other tensors. Each operation has some memory and compute consequences.</p>
-<p><strong>Tensor storage (under the hood):</strong>
--   PyTorch tensors are pointers into allocated memory, with metadata describing how to get to any element.
--   A 2D tensor (matrix) is stored as a 1D array (underlying storage).
--   Metadata includes <code>strides</code>, which indicate how many elements to skip in the underlying storage to move to the next element along a specific dimension.
-    -   For a row-major 4x4 matrix, <code>stride(0)</code> (to go to next row) is 4, and <code>stride(1)</code> (to go to next column) is 1.</p>
+<p><strong>Tensor storage (under the hood):</strong></p>
+<ul>
+<li>PyTorch tensors are pointers into allocated memory, with metadata describing how to get to any element.</li>
+<li>A 2D tensor (matrix) is stored as a 1D array (underlying storage).</li>
+<li>Metadata includes <code>strides</code>, which indicate how many elements to skip in the underlying storage to move to the next element along a specific dimension.<ul>
+<li>For a row-major 4x4 matrix, <code>stride(0)</code> (to go to next row) is 4, and <code>stride(1)</code> (to go to next column) is 1.</li>
+</ul>
+</li>
+</ul>
 <pre><code class="language-python">def tensor_storage():
     # What are tensors in PyTorch?
     # PyTorch tensors are pointers into allocated memory
@@ -299,9 +329,11 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
     # index = r * x.stride(0) + c * x.stride(1) # @inspect index
     # assert index == 6
 </code></pre>
-<p><strong>Tensor slicing (views):</strong>
--   Many operations (like slicing) simply provide a different view of the tensor.
--   This does not make a copy, so mutations in one tensor affect the other.</p>
+<p><strong>Tensor slicing (views):</strong></p>
+<ul>
+<li>Many operations (like slicing) simply provide a different view of the tensor.</li>
+<li>This does not make a copy, so mutations in one tensor affect the other.</li>
+</ul>
 <pre><code class="language-python">def tensor_slicing():
     x = torch.tensor([[1, 2, 3], [4, 5, 6]]) # @inspect x
 
@@ -353,8 +385,10 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 <li>However, operations like <code>.contiguous()</code> or <code>.reshape()</code> (which implicitly calls <code>.contiguous()</code> if needed) can create a copy, consuming additional memory and compute.</li>
 <li>Non-contiguous tensors cannot be directly viewed into arbitrary shapes. They must be made contiguous first, which involves a copy.</li>
 </ul>
-<p><strong>Tensor elementwise operations:</strong>
--   Elementwise operations (e.g., <code>pow</code>, <code>sqrt</code>, division) create new tensors to store results.</p>
+<p><strong>Tensor elementwise operations:</strong></p>
+<ul>
+<li>Elementwise operations (e.g., <code>pow</code>, <code>sqrt</code>, division) create new tensors to store results.</li>
+</ul>
 <pre><code class="language-python">def tensor_elementwise():
     # These operations apply some operation to each element of the tensor
     # ...and return a new tensor of the same shape.
@@ -369,8 +403,10 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
     # assert torch.equal(x.triu(), torch.tensor([[1, 1, 1], [0, 1, 1], [0, 0, 1]]))
     # This is useful for computing an causal attention mask, where M[i, j] is the contribution of i to j.
 </code></pre>
-<p><strong>Tensor matrix multiplication (<code>matmul</code>):</strong>
--   Matrix multiplication is the "bread and butter" of deep learning.</p>
+<p><strong>Tensor matrix multiplication (<code>matmul</code>):</strong></p>
+<ul>
+<li>Matrix multiplication is the "bread and butter" of deep learning.</li>
+</ul>
 <pre><code class="language-python">def tensor_matmul():
     # Finally, the bread and butter of deep learning: matrix multiplication.
     x = torch.ones(16, 32)
@@ -390,9 +426,11 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 </ul>
 <h4 id="013000-tensor-einops">[01:30:00] Tensor Einops</h4>
 <p><code>einops</code> is a library for manipulating tensors where dimensions are named, inspired by Einstein summation notation.</p>
-<p><strong>Motivation (traditional PyTorch code):</strong>
--   Traditional PyTorch code often involves operations like <code>x @ y.transpose(-2, -1)</code>, which can be confusing due to the use of negative indices and implicit dimension meanings.
--   It's easy to mess up dimensions, and comments can get out of sync with the code.</p>
+<p><strong>Motivation (traditional PyTorch code):</strong></p>
+<ul>
+<li>Traditional PyTorch code often involves operations like <code>x @ y.transpose(-2, -1)</code>, which can be confusing due to the use of negative indices and implicit dimension meanings.</li>
+<li>It's easy to mess up dimensions, and comments can get out of sync with the code.</li>
+</ul>
 <pre><code class="language-python">def einops_motivation():
     # Traditional PyTorch code:
     # x = torch.ones(2, 2, 3) # batch, sequence, hidden @inspect x
@@ -400,15 +438,19 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
     # z = x @ y.transpose(-2, -1) # batch, sequence, sequence @inspect z
     # Easy to mess up the dimensions (what is -2, -1?)
 </code></pre>
-<p><strong>Solution: <code>einops</code></strong>
--   <code>einops</code> allows you to name dimensions, making tensor operations more explicit and readable.</p>
+<p><strong>Solution: <code>einops</code></strong></p>
+<ul>
+<li><code>einops</code> allows you to name dimensions, making tensor operations more explicit and readable.</li>
+</ul>
 <pre><code class="language-python">def tensor_einops():
     # Einops is a library for manipulating tensors where dimensions are named.
     # It is inspired by Einstein summation notation (Einstein, 1916).
     # [Einops tutorial]
 </code></pre>
-<p><strong>Jax typing basics:</strong>
--   <code>jax_typing</code> is a library that provides a way to specify dimension names in type hints, improving documentation.</p>
+<p><strong>Jax typing basics:</strong></p>
+<ul>
+<li><code>jax_typing</code> is a library that provides a way to specify dimension names in type hints, improving documentation.</li>
+</ul>
 <pre><code class="language-python">def jaxtyping_basics():
     # How do you keep track of tensor dimensions?
     # Old way:
@@ -418,8 +460,10 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
     # x: Float[torch.Tensor, &quot;batch seq heads hidden&quot;] = torch.ones(2, 1, 3) # @inspect x
     # Note that this is just documentation (no enforcement).
 </code></pre>
-<p><strong><code>einops_einsum</code> (generalized matrix multiplication with good bookkeeping):</strong>
--   <code>einsum</code> allows you to specify input and output dimensions by name. Dimensions not named in the output are summed over.</p>
+<p><strong><code>einops_einsum</code> (generalized matrix multiplication with good bookkeeping):</strong></p>
+<ul>
+<li><code>einsum</code> allows you to specify input and output dimensions by name. Dimensions not named in the output are summed over.</li>
+</ul>
 <pre><code class="language-python">def einops_einsum():
     # Einsum is generalized matrix multiplication with good bookkeeping.
     # Define two tensors:
@@ -439,8 +483,10 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 <ul>
 <li><code>einsum</code> automatically figures out the best way to reduce and optimize the operation. When used with <code>torch.compile</code>, it can reuse the same optimized implementation.</li>
 </ul>
-<p><strong><code>einops_reduce</code>:</strong>
--   <code>reduce</code> operates on one tensor to aggregate dimensions (e.g., sum, mean, max, min).</p>
+<p><strong><code>einops_reduce</code>:</strong></p>
+<ul>
+<li><code>reduce</code> operates on one tensor to aggregate dimensions (e.g., sum, mean, max, min).</li>
+</ul>
 <pre><code class="language-python">def einops_reduce():
     # You can reduce a single tensor via some operation (e.g., sum, mean, max, min).
     # x: Float[torch.Tensor, &quot;batch seq hidden&quot;] = torch.ones(2, 3, 4) # @inspect x
@@ -451,8 +497,10 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
     # New (einops) way:
     # y = reduce(x, &quot;... hidden -&gt; ...&quot;, &quot;sum&quot;) # @inspect y
 </code></pre>
-<p><strong><code>einops_rearrange</code>:</strong>
--   <code>rearrange</code> allows reshaping and reordering dimensions, useful when one dimension represents two underlying dimensions that need to be broken up or combined.</p>
+<p><strong><code>einops_rearrange</code>:</strong></p>
+<ul>
+<li><code>rearrange</code> allows reshaping and reordering dimensions, useful when one dimension represents two underlying dimensions that need to be broken up or combined.</li>
+</ul>
 <pre><code class="language-python">def einops_rearrange():
     # Sometimes, a dimension represents two dimensions
     # ...and you want to operate on one of them.
@@ -476,19 +524,29 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 </ul>
 <h4 id="013500-tensor-operations-flops">[01:35:00] Tensor Operations FLOPs</h4>
 <p><strong>Floating-point operation (FLOP):</strong> A basic operation like addition ($x+y$) or multiplication ($x \times y$).</p>
-<p><strong>Confusing acronyms:</strong>
--   <strong>FLOPs:</strong> Floating-point operations (measure of computation done).
--   <strong>FLOP/s:</strong> Floating-point operations per second (measure of hardware speed).
-    -   The lecture will use FLOP/s to avoid confusion.</p>
-<p><strong>Intuitions about FLOPs:</strong>
--   Training GPT-3 (2020) took $3 \times 10^{23}$ FLOPs.
--   Training GPT-4 (2023) is speculated to take $2 \times 10^{25}$ FLOPs.
--   US executive order required reporting models trained with $\ge 10^{26}$ FLOPs (now revoked).
--   A100 has a peak performance of 312 TFLOP/s.
--   H100 has a peak performance of 1979 TFLOP/s with sparsity (50% without). This is for structured sparsity where 2 out of 4 elements are zero. If not sparse, it's half that number.</p>
-<p><strong>Example calculation:</strong>
--   8 H100s for 2 weeks:
-    *   Total FLOPs = $8 \times (60 \times 60 \times 24 \times 7 \times 2) \times \text{H100_flop_per_sec} \approx 4.788 \times 10^{21}$ FLOPs.</p>
+<p><strong>Confusing acronyms:</strong></p>
+<ul>
+<li><strong>FLOPs:</strong> Floating-point operations (measure of computation done).</li>
+<li><strong>FLOP/s:</strong> Floating-point operations per second (measure of hardware speed).<ul>
+<li>The lecture will use FLOP/s to avoid confusion.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Intuitions about FLOPs:</strong></p>
+<ul>
+<li>Training GPT-3 (2020) took $3 \times 10^{23}$ FLOPs.</li>
+<li>Training GPT-4 (2023) is speculated to take $2 \times 10^{25}$ FLOPs.</li>
+<li>US executive order required reporting models trained with $\ge 10^{26}$ FLOPs (now revoked).</li>
+<li>A100 has a peak performance of 312 TFLOP/s.</li>
+<li>H100 has a peak performance of 1979 TFLOP/s with sparsity (50% without). This is for structured sparsity where 2 out of 4 elements are zero. If not sparse, it's half that number.</li>
+</ul>
+<p><strong>Example calculation:</strong></p>
+<ul>
+<li>8 H100s for 2 weeks:<ul>
+<li>Total FLOPs = $8 \times (60 \times 60 \times 24 \times 7 \times 2) \times \text{H100_flop_per_sec} \approx 4.788 \times 10^{21}$ FLOPs.</li>
+</ul>
+</li>
+</ul>
 <h4 id="014000-linear-model-example">[01:40:00] Linear Model Example</h4>
 <p>Let's consider a simple linear model: $y = x \times w$.</p>
 <pre><code class="language-python">def tensor_operations_flops():
@@ -516,17 +574,23 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 <li>Total FLOPs = $B \times K \times (2D) = 2 \times B \times D \times K$.</li>
 <li>This is a key formula to remember for matrix multiplication FLOPs.</li>
 </ul>
-<p><strong>FLOPs of other operations:</strong>
--   Elementwise operations on an $m \times n$ matrix require $O(mn)$ FLOPs.
--   Addition of two $m \times n$ matrices requires $mn$ FLOPs.
--   In general, no other operation you'd encounter in deep learning is as expensive as matrix multiplication for large enough matrices.
--   This is why napkin math often simplifies to only consider matrix multiplications. Hardware is designed for large matrix multiplications, so for efficiency, models should leverage this.</p>
-<p><strong>Interpretation:</strong>
--   $B$ is the number of data points (or tokens).
--   $D \times K$ is the number of parameters.
--   FLOPs for forward pass is $2 \times (\text{number of tokens}) \times (\text{number of parameters})$. This generalizes to Transformers.</p>
-<p><strong>How do our FLOPs calculations translate to wall-clock time (seconds)?</strong>
--   We can time the matrix multiplication and calculate the actual FLOP/s.</p>
+<p><strong>FLOPs of other operations:</strong></p>
+<ul>
+<li>Elementwise operations on an $m \times n$ matrix require $O(mn)$ FLOPs.</li>
+<li>Addition of two $m \times n$ matrices requires $mn$ FLOPs.</li>
+<li>In general, no other operation you'd encounter in deep learning is as expensive as matrix multiplication for large enough matrices.</li>
+<li>This is why napkin math often simplifies to only consider matrix multiplications. Hardware is designed for large matrix multiplications, so for efficiency, models should leverage this.</li>
+</ul>
+<p><strong>Interpretation:</strong></p>
+<ul>
+<li>$B$ is the number of data points (or tokens).</li>
+<li>$D \times K$ is the number of parameters.</li>
+<li>FLOPs for forward pass is $2 \times (\text{number of tokens}) \times (\text{number of parameters})$. This generalizes to Transformers.</li>
+</ul>
+<p><strong>How do our FLOPs calculations translate to wall-clock time (seconds)?</strong></p>
+<ul>
+<li>We can time the matrix multiplication and calculate the actual FLOP/s.</li>
+</ul>
 <pre><code class="language-python">def tensor_operations_flops():
     # Let us time it!
     # actual_time = time_matmul(x, w) # @inspect actual_time
@@ -535,22 +599,28 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 <ul>
 <li>The example shows an actual time of 0.163 seconds for the matrix multiplication, resulting in an actual FLOP/s of $5.4 \times 10^{13}$.</li>
 </ul>
-<p><strong>Model FLOPs Utilization (MFU):</strong>
--   <strong>Definition:</strong> MFU = (actual FLOP/s) / (promised FLOP/s) (ignoring communication/overhead).
--   MFU is a measure of how well the model utilizes the theoretical peak performance of the hardware.
--   Usually, MFU of $> 0.5$ is considered quite good, and will be higher if matrix multiplications dominate the workload.
--   For the example, the promised FLOP/s for H100 (float32) is $6.75 \times 10^{13}$.
--   MFU = $(5.4 \times 10^{13}) / (6.75 \times 10^{13}) \approx 0.801$. This is a good MFU.</p>
-<p><strong>MFU with bfloat16:</strong>
--   If we perform the same matrix multiplication with <code>bfloat16</code>, the actual time is 0.032 seconds (much faster).
--   The actual FLOP/s is $2.735 \times 10^{14}$ (higher).
--   The promised FLOP/s for H100 (bfloat16) is $9.895 \times 10^{14}$.
--   MFU = $(2.735 \times 10^{14}) / (9.895 \times 10^{14}) \approx 0.276$.
--   The MFU is lower for <code>bfloat16</code> because the promised FLOP/s is much higher, making it harder to fully utilize.</p>
+<p><strong>Model FLOPs Utilization (MFU):</strong></p>
+<ul>
+<li><strong>Definition:</strong> MFU = (actual FLOP/s) / (promised FLOP/s) (ignoring communication/overhead).</li>
+<li>MFU is a measure of how well the model utilizes the theoretical peak performance of the hardware.</li>
+<li>Usually, MFU of $> 0.5$ is considered quite good, and will be higher if matrix multiplications dominate the workload.</li>
+<li>For the example, the promised FLOP/s for H100 (float32) is $6.75 \times 10^{13}$.</li>
+<li>MFU = $(5.4 \times 10^{13}) / (6.75 \times 10^{13}) \approx 0.801$. This is a good MFU.</li>
+</ul>
+<p><strong>MFU with bfloat16:</strong></p>
+<ul>
+<li>If we perform the same matrix multiplication with <code>bfloat16</code>, the actual time is 0.032 seconds (much faster).</li>
+<li>The actual FLOP/s is $2.735 \times 10^{14}$ (higher).</li>
+<li>The promised FLOP/s for H100 (bfloat16) is $9.895 \times 10^{14}$.</li>
+<li>MFU = $(2.735 \times 10^{14}) / (9.895 \times 10^{14}) \approx 0.276$.</li>
+<li>The MFU is lower for <code>bfloat16</code> because the promised FLOP/s is much higher, making it harder to fully utilize.</li>
+</ul>
 <h3 id="015000-gradients-flops">[01:50:00] Gradients FLOPs</h3>
 <p>We've discussed forward pass FLOPs. Now let's consider the FLOPs for computing gradients (backward pass).</p>
-<p><strong>Example: Simple linear model</strong>
--   Loss: $y = 0.5 \times (x \times w - 5)^2$.</p>
+<p><strong>Example: Simple linear model</strong></p>
+<ul>
+<li>Loss: $y = 0.5 \times (x \times w - 5)^2$.</li>
+</ul>
 <pre><code class="language-python">def gradients_basics():
     # Forward pass: compute loss
     # x = torch.tensor([1., 2, 3])
@@ -565,19 +635,23 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
     # assert x.grad is None
     # assert torch.equal(w.grad, torch.tensor([1, 2, 3]))
 </code></pre>
-<p><strong>FLOPs for computing gradients:</strong>
--   Let's consider a two-layer linear network: $x \rightarrow w_1 \rightarrow h_1 \rightarrow w_2 \rightarrow h_2 \rightarrow \text{loss}$.
--   We need to compute gradients with respect to $h_1$, $h_2$, $w_1$, and $w_2$.
--   Focus on computing the gradient for $w_2$ using the chain rule.
--   The gradient $dL/dw_2$ involves operations similar to matrix multiplication.
--   The number of FLOPs for the backward pass (computing $dL/dw_2$) is $2 \times B \times D \times K$.
--   Similarly, computing $dL/dh_1$ also involves matrix multiplication-like operations.
--   The total FLOPs for the backward pass (for all parameters) is approximately $4 \times (\text{number of data points}) \times (\text{number of parameters})$.</p>
-<p><strong>Summary of FLOPs:</strong>
--   <strong>Forward pass:</strong> $2 \times (\text{number of data points}) \times (\text{number of parameters})$ FLOPs.
--   <strong>Backward pass:</strong> $4 \times (\text{number of data points}) \times (\text{number of parameters})$ FLOPs.
--   <strong>Total:</strong> $6 \times (\text{number of data points}) \times (\text{number of parameters})$ FLOPs.
--   This explains the "6" factor in the initial napkin math question.</p>
+<p><strong>FLOPs for computing gradients:</strong></p>
+<ul>
+<li>Let's consider a two-layer linear network: $x \rightarrow w_1 \rightarrow h_1 \rightarrow w_2 \rightarrow h_2 \rightarrow \text{loss}$.</li>
+<li>We need to compute gradients with respect to $h_1$, $h_2$, $w_1$, and $w_2$.</li>
+<li>Focus on computing the gradient for $w_2$ using the chain rule.</li>
+<li>The gradient $dL/dw_2$ involves operations similar to matrix multiplication.</li>
+<li>The number of FLOPs for the backward pass (computing $dL/dw_2$) is $2 \times B \times D \times K$.</li>
+<li>Similarly, computing $dL/dh_1$ also involves matrix multiplication-like operations.</li>
+<li>The total FLOPs for the backward pass (for all parameters) is approximately $4 \times (\text{number of data points}) \times (\text{number of parameters})$.</li>
+</ul>
+<p><strong>Summary of FLOPs:</strong></p>
+<ul>
+<li><strong>Forward pass:</strong> $2 \times (\text{number of data points}) \times (\text{number of parameters})$ FLOPs.</li>
+<li><strong>Backward pass:</strong> $4 \times (\text{number of data points}) \times (\text{number of parameters})$ FLOPs.</li>
+<li><strong>Total:</strong> $6 \times (\text{number of data points}) \times (\text{number of parameters})$ FLOPs.</li>
+<li>This explains the "6" factor in the initial napkin math question.</li>
+</ul>
 <h3 id="020000-models">[02:00:00] Models</h3>
 <h4 id="020000-module-parameters">[02:00:00] Module Parameters</h4>
 <ul>
@@ -622,24 +696,30 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 <li>The total number of parameters in this model is $D^2 \times (\text{num_layers}) + D \times (\text{num_layers}) + D + 1$.</li>
 </ul>
 <h4 id="021000-training-loop-and-best-practices">[02:10:00] Training Loop and Best Practices</h4>
-<p><strong>Randomness:</strong>
--   Randomness appears in many places: parameter initialization, dropout, data ordering.
--   For reproducibility, it's recommended to always pass a different random seed for each use of randomness.
--   Determinism is particularly useful when debugging.
--   In PyTorch, there are multiple places to set random seeds (torch, numpy, python's random module). It's best to set them all.</p>
-<p><strong>Data loading:</strong>
--   In language modeling, data is a sequence of integers (output by the tokenizer).
--   It's convenient to serialize data as numpy arrays.
--   For large datasets (e.g., LLaMA data is 2.8 TB), you don't want to load the entire data into memory at once.
--   Use <code>np.memmap</code> to lazily load only the accessed parts into memory. This allows treating a file on disk as a numpy array.
--   A data loader generates batches of sequences for training.</p>
-<p><strong>Optimizer:</strong>
--   We've defined our model. Now let's define the optimizer.
--   <strong>SGD (Stochastic Gradient Descent):</strong> Computes gradients for a batch and takes a step.
--   <strong>Momentum:</strong> SGD + exponential averaging of gradients.
--   <strong>AdaGrad:</strong> SGD + averaging by squared gradients. Scales gradients by the inverse of the square root of past squared gradients.
--   <strong>RMSprop:</strong> AdaGrad + exponentially averaging of squared gradients.
--   <strong>Adam:</strong> RMSprop + momentum. Combines exponential averaging of gradients and squared gradients.</p>
+<p><strong>Randomness:</strong></p>
+<ul>
+<li>Randomness appears in many places: parameter initialization, dropout, data ordering.</li>
+<li>For reproducibility, it's recommended to always pass a different random seed for each use of randomness.</li>
+<li>Determinism is particularly useful when debugging.</li>
+<li>In PyTorch, there are multiple places to set random seeds (torch, numpy, python's random module). It's best to set them all.</li>
+</ul>
+<p><strong>Data loading:</strong></p>
+<ul>
+<li>In language modeling, data is a sequence of integers (output by the tokenizer).</li>
+<li>It's convenient to serialize data as numpy arrays.</li>
+<li>For large datasets (e.g., LLaMA data is 2.8 TB), you don't want to load the entire data into memory at once.</li>
+<li>Use <code>np.memmap</code> to lazily load only the accessed parts into memory. This allows treating a file on disk as a numpy array.</li>
+<li>A data loader generates batches of sequences for training.</li>
+</ul>
+<p><strong>Optimizer:</strong></p>
+<ul>
+<li>We've defined our model. Now let's define the optimizer.</li>
+<li><strong>SGD (Stochastic Gradient Descent):</strong> Computes gradients for a batch and takes a step.</li>
+<li><strong>Momentum:</strong> SGD + exponential averaging of gradients.</li>
+<li><strong>AdaGrad:</strong> SGD + averaging by squared gradients. Scales gradients by the inverse of the square root of past squared gradients.</li>
+<li><strong>RMSprop:</strong> AdaGrad + exponentially averaging of squared gradients.</li>
+<li><strong>Adam:</strong> RMSprop + momentum. Combines exponential averaging of gradients and squared gradients.</li>
+</ul>
 <pre><code class="language-python">def optimizer():
     # Recall our deep linear model.
     # B = 2
@@ -672,26 +752,38 @@ The general rule of thumb is to use <code>float32</code> for parameters and opti
 <li>The <code>optimizer.step()</code> method updates the model parameters based on the computed gradients and the optimizer's internal state.</li>
 <li>The <code>optimizer.zero_grad()</code> method clears the gradients of all optimized tensors.</li>
 </ul>
-<p><strong>Implementation of AdaGrad:</strong>
--   To implement a custom optimizer in PyTorch, you override the <code>torch.optim.Optimizer</code> class.
--   The <code>__init__</code> method takes the model parameters and learning rate.
--   The <code>step()</code> method contains the logic for updating parameters.
-    -   It accesses the optimizer's internal state (e.g., <code>g2</code> for AdaGrad) for each parameter.
-    -   It updates <code>g2</code> by adding the square of the current gradient.
-    -   It then updates the parameter using the AdaGrad formula: $p_{t+1} = p_t - \text{lr} \times g_t / \sqrt{g2 + 10^{-5}}$.</p>
-<p><strong>Memory for optimizer state:</strong>
--   The optimizer state (e.g., <code>g2</code> in AdaGrad, or momentum terms in Adam) also consumes memory.
--   For AdaGrad, it stores one copy of squared gradients for each parameter. So, <code>num_optimizer_states = num_parameters</code>.
--   For Adam, it stores two copies (momentum and squared gradients), so <code>num_optimizer_states = 2 * num_parameters</code>.</p>
-<p><strong>Total memory for training:</strong>
--   Total memory = $4 \times (\text{num_parameters} + \text{num_activations} + \text{num_gradients} + \text{num_optimizer_states})$.
-    -   Assuming <code>float32</code> (4 bytes per value).
-    -   <code>num_parameters</code>: $D^2 \times (\text{num_layers}) + D \times (\text{num_layers}) + D + 1$.
-    -   <code>num_activations</code>: $B \times D \times (\text{num_layers})$.
-    -   <code>num_gradients</code>: <code>num_parameters</code>.
-    -   <code>num_optimizer_states</code>: <code>num_parameters</code> (for AdaGrad).</p>
-<p><strong>Compute for one step:</strong>
--   FLOPs for one step = $6 \times B \times \text{num_parameters}$.</p>
+<p><strong>Implementation of AdaGrad:</strong></p>
+<ul>
+<li>To implement a custom optimizer in PyTorch, you override the <code>torch.optim.Optimizer</code> class.</li>
+<li>The <code>__init__</code> method takes the model parameters and learning rate.</li>
+<li>The <code>step()</code> method contains the logic for updating parameters.<ul>
+<li>It accesses the optimizer's internal state (e.g., <code>g2</code> for AdaGrad) for each parameter.</li>
+<li>It updates <code>g2</code> by adding the square of the current gradient.</li>
+<li>It then updates the parameter using the AdaGrad formula: $p_{t+1} = p_t - \text{lr} \times g_t / \sqrt{g2 + 10^{-5}}$.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Memory for optimizer state:</strong></p>
+<ul>
+<li>The optimizer state (e.g., <code>g2</code> in AdaGrad, or momentum terms in Adam) also consumes memory.</li>
+<li>For AdaGrad, it stores one copy of squared gradients for each parameter. So, <code>num_optimizer_states = num_parameters</code>.</li>
+<li>For Adam, it stores two copies (momentum and squared gradients), so <code>num_optimizer_states = 2 * num_parameters</code>.</li>
+</ul>
+<p><strong>Total memory for training:</strong></p>
+<ul>
+<li>Total memory = $4 \times (\text{num_parameters} + \text{num_activations} + \text{num_gradients} + \text{num_optimizer_states})$.<ul>
+<li>Assuming <code>float32</code> (4 bytes per value).</li>
+<li><code>num_parameters</code>: $D^2 \times (\text{num_layers}) + D \times (\text{num_layers}) + D + 1$.</li>
+<li><code>num_activations</code>: $B \times D \times (\text{num_layers})$.</li>
+<li><code>num_gradients</code>: <code>num_parameters</code>.</li>
+<li><code>num_optimizer_states</code>: <code>num_parameters</code> (for AdaGrad).</li>
+</ul>
+</li>
+</ul>
+<p><strong>Compute for one step:</strong></p>
+<ul>
+<li>FLOPs for one step = $6 \times B \times \text{num_parameters}$.</li>
+</ul>
 <h4 id="022000-training-loop">[02:20:00] Training Loop</h4>
 <pre><code class="language-python">def train_loop():
     # Generate data from linear function with weights (0, 1, 2, ..., D-1).
@@ -717,10 +809,12 @@ def train(name: str, get_batch, D: int, num_layers: int, lr: float):
     #     optimizer.step()
     #     optimizer.zero_grad(set_to_none=True)
 </code></pre>
-<p><strong>Checkpointing:</strong>
--   Training large language models takes a long time and will certainly crash.
--   To avoid losing progress, it's useful to periodically save your model and optimizer state to disk.
--   When saving, store both <code>model.state_dict()</code> and <code>optimizer.state_dict()</code>.</p>
+<p><strong>Checkpointing:</strong></p>
+<ul>
+<li>Training large language models takes a long time and will certainly crash.</li>
+<li>To avoid losing progress, it's useful to periodically save your model and optimizer state to disk.</li>
+<li>When saving, store both <code>model.state_dict()</code> and <code>optimizer.state_dict()</code>.</li>
+</ul>
 <pre><code class="language-python">def checkpointing():
     # Training language models take a long time and will certainly crash.
     # You don't want to lose all your progress.
@@ -739,19 +833,27 @@ def train(name: str, get_batch, D: int, num_layers: int, lr: float):
     # Load the checkpoint
     # loaded_checkpoint = torch.load(&quot;model_checkpoint.pt&quot;)
 </code></pre>
-<p><strong>Mixed-precision training:</strong>
--   The choice of data type (float32, bfloat16, fp8) has tradeoffs:
-    -   Higher precision: more accurate/stable, more memory, more compute.
-    -   Lower precision: less accurate/stable, less memory, less compute.
--   <strong>Solution:</strong> Use <code>float32</code> by default, but use <code>bfloat16</code> or <code>fp8</code> when possible.
--   <strong>Concrete plan:</strong>
-    -   Use <code>{bfloat16, fp8}</code> for the forward pass (activations).
-    -   Use <code>float32</code> for the rest (parameters, gradients).
--   This is the idea behind mixed-precision training.
--   PyTorch has an automatic mixed precision (AMP) library (<code>torch.cuda.amp</code>).
--   Nvidia's Transformer Engine supports FP8 for linear layers.</p>
-<p><strong>Final comment:</strong>
--   People are pushing the envelope on what precision is needed.
--   The challenge with lower precision is numerical instability. Tricks are used to control numerics during training.
--   Model design and system design are synergistic: models are designed to leverage hardware properties (e.g., Nvidia chips are optimized for lower precision).</p>
+<p><strong>Mixed-precision training:</strong></p>
+<ul>
+<li>The choice of data type (float32, bfloat16, fp8) has tradeoffs:<ul>
+<li>Higher precision: more accurate/stable, more memory, more compute.</li>
+<li>Lower precision: less accurate/stable, less memory, less compute.</li>
+</ul>
+</li>
+<li><strong>Solution:</strong> Use <code>float32</code> by default, but use <code>bfloat16</code> or <code>fp8</code> when possible.</li>
+<li><strong>Concrete plan:</strong><ul>
+<li>Use <code>{bfloat16, fp8}</code> for the forward pass (activations).</li>
+<li>Use <code>float32</code> for the rest (parameters, gradients).</li>
+</ul>
+</li>
+<li>This is the idea behind mixed-precision training.</li>
+<li>PyTorch has an automatic mixed precision (AMP) library (<code>torch.cuda.amp</code>).</li>
+<li>Nvidia's Transformer Engine supports FP8 for linear layers.</li>
+</ul>
+<p><strong>Final comment:</strong></p>
+<ul>
+<li>People are pushing the envelope on what precision is needed.</li>
+<li>The challenge with lower precision is numerical instability. Tricks are used to control numerics during training.</li>
+<li>Model design and system design are synergistic: models are designed to leverage hardware properties (e.g., Nvidia chips are optimized for lower precision).</li>
+</ul>
 <hr /><div class="pager"><a href="lec01.html">← Lec 01</a><a href="lec03.html" style="text-align:right">Lec 03 →</a></div></main></div></body></html>

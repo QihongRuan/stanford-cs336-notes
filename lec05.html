@@ -80,27 +80,33 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <script>document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('pre code').forEach(b=>{try{hljs.highlightElement(b)}catch(e){}})});</script>
 
-</head><body><div class="layout"><nav class="sidebar"><h2>CS336 Lectures</h2><a href="index.html">Home</a><a href="deepdives.html">🧠 Algorithm Deep Dives</a><a href="assignments.html">🛠️ Assignments — Do the Work</a><a href="lec01.html"><span class="num">01</span>Overview and Tokenization</a><a href="lec02.html"><span class="num">02</span>PyTorch, Resource Accounting</a><a href="lec03.html"><span class="num">03</span>Architectures, Hyperparameters</a><a href="lec04.html"><span class="num">04</span>Mixture of Experts</a><a href="lec05.html" class="active"><span class="num">05</span>GPUs</a><a href="lec06.html"><span class="num">06</span>Kernels, Triton</a><a href="lec07.html"><span class="num">07</span>Parallelism 1</a><a href="lec08.html"><span class="num">08</span>Parallelism 2</a><a href="lec09.html"><span class="num">09</span>Scaling Laws 1</a><a href="lec10.html"><span class="num">10</span>Inference</a><a href="lec11.html"><span class="num">11</span>Scaling Laws 2</a><a href="lec12.html"><span class="num">12</span>Evaluation</a><a href="lec13.html"><span class="num">13</span>Data 1</a><a href="lec14.html"><span class="num">14</span>Data 2</a><a href="lec15.html"><span class="num">15</span>Alignment — SFT/RLHF</a><a href="lec16.html"><span class="num">16</span>Alignment — RL 1</a><a href="lec17.html"><span class="num">17</span>Alignment — RL 2</a><a href="https://github.com/QihongRuan/stanford-cs336-notes" target="_blank" rel="noopener" class="ghside">⭐ Star on GitHub</a></nav><main class="content"><div class="crumbs"><a href="../">Qihong Ruan</a> / <a href="index.html">CS336 Notes</a> / Lecture 05</div><h1>Lecture 05: GPUs</h1><p class="meta">Stanford CS336 · Spring 2025 · 1:14:21 · <a href="https://www.youtube.com/watch?v=6OBtO9niT00" target="_blank">Watch on YouTube ↗</a></p><div class="banner">📝 Auto-generated notes from the full lecture video (slides, equations, and live code) and transcript. Verify critical details against the source.</div><div class="embed"><a href="https://www.youtube.com/watch?v=6OBtO9niT00" target="_blank" rel="noopener" style="background-image:url(https://i.ytimg.com/vi/6OBtO9niT00/hqdefault.jpg)"><span class="play"><span>▶ Watch on YouTube</span></span></a></div><p><strong>TL;DR</strong>
-- GPUs are massively parallel processors optimized for throughput, not latency, by having many simple compute units (SMs) orchestrated by minimal control logic.
-- Compute (especially matrix multiplication) has scaled much faster than memory bandwidth, making memory access the primary bottleneck for modern ML workloads.
-- Optimizing GPU performance requires careful management of the memory hierarchy, leveraging fast on-chip memory (shared memory, registers) and minimizing slow global memory (DRAM) access.
-- Key techniques for optimizing GPU performance include: reducing memory accesses (coalescing, fusion, tiling), trading compute for memory (quantization, recomputation), and aligning data access patterns with hardware specifics (bursts, tile divisibility).
-- Flash Attention (and Flash Attention 2) dramatically accelerates attention by applying these low-level GPU optimization techniques, particularly online softmax computation and recomputation, to reduce HBM accesses.</p>
-<p><strong>Key Concepts</strong>
-- GPU Architecture (SMs, SPs, Tensor Cores)
-- CPU vs. GPU Design Goals (Latency vs. Throughput)
-- Memory Hierarchy (Registers, Shared Memory, L1/L2 Cache, Global Memory/HBM)
-- Execution Model (SIMT, Warps, Blocks, Threads)
-- Dennard Scaling vs. Parallel Scaling
-- Roofline Model (Compute-bound vs. Memory-bound)
-- GPU Optimization Techniques:
-    - Control Divergence
-    - Low Precision Computation (Quantization)
-    - Operator Fusion
-    - Recomputation
-    - Memory Coalescing
-    - Tiling
-- Flash Attention</p>
+</head><body><div class="layout"><nav class="sidebar"><h2>CS336 Lectures</h2><a href="index.html">Home</a><a href="deepdives.html">🧠 Algorithm Deep Dives</a><a href="assignments.html">🛠️ Assignments — Do the Work</a><a href="lec01.html"><span class="num">01</span>Overview and Tokenization</a><a href="lec02.html"><span class="num">02</span>PyTorch, Resource Accounting</a><a href="lec03.html"><span class="num">03</span>Architectures, Hyperparameters</a><a href="lec04.html"><span class="num">04</span>Mixture of Experts</a><a href="lec05.html" class="active"><span class="num">05</span>GPUs</a><a href="lec06.html"><span class="num">06</span>Kernels, Triton</a><a href="lec07.html"><span class="num">07</span>Parallelism 1</a><a href="lec08.html"><span class="num">08</span>Parallelism 2</a><a href="lec09.html"><span class="num">09</span>Scaling Laws 1</a><a href="lec10.html"><span class="num">10</span>Inference</a><a href="lec11.html"><span class="num">11</span>Scaling Laws 2</a><a href="lec12.html"><span class="num">12</span>Evaluation</a><a href="lec13.html"><span class="num">13</span>Data 1</a><a href="lec14.html"><span class="num">14</span>Data 2</a><a href="lec15.html"><span class="num">15</span>Alignment — SFT/RLHF</a><a href="lec16.html"><span class="num">16</span>Alignment — RL 1</a><a href="lec17.html"><span class="num">17</span>Alignment — RL 2</a><a href="https://github.com/QihongRuan/stanford-cs336-notes" target="_blank" rel="noopener" class="ghside">⭐ Star on GitHub</a></nav><main class="content"><div class="crumbs"><a href="../">Qihong Ruan</a> / <a href="index.html">CS336 Notes</a> / Lecture 05</div><h1>Lecture 05: GPUs</h1><p class="meta">Stanford CS336 · Spring 2025 · 1:14:21 · <a href="https://www.youtube.com/watch?v=6OBtO9niT00" target="_blank">Watch on YouTube ↗</a></p><div class="banner">📝 Auto-generated notes from the full lecture video (slides, equations, and live code) and transcript. Verify critical details against the source.</div><div class="embed"><a href="https://www.youtube.com/watch?v=6OBtO9niT00" target="_blank" rel="noopener" style="background-image:url(https://i.ytimg.com/vi/6OBtO9niT00/hqdefault.jpg)"><span class="play"><span>▶ Watch on YouTube</span></span></a></div><p><strong>TL;DR</strong></p>
+<ul>
+<li>GPUs are massively parallel processors optimized for throughput, not latency, by having many simple compute units (SMs) orchestrated by minimal control logic.</li>
+<li>Compute (especially matrix multiplication) has scaled much faster than memory bandwidth, making memory access the primary bottleneck for modern ML workloads.</li>
+<li>Optimizing GPU performance requires careful management of the memory hierarchy, leveraging fast on-chip memory (shared memory, registers) and minimizing slow global memory (DRAM) access.</li>
+<li>Key techniques for optimizing GPU performance include: reducing memory accesses (coalescing, fusion, tiling), trading compute for memory (quantization, recomputation), and aligning data access patterns with hardware specifics (bursts, tile divisibility).</li>
+<li>Flash Attention (and Flash Attention 2) dramatically accelerates attention by applying these low-level GPU optimization techniques, particularly online softmax computation and recomputation, to reduce HBM accesses.</li>
+</ul>
+<p><strong>Key Concepts</strong></p>
+<ul>
+<li>GPU Architecture (SMs, SPs, Tensor Cores)</li>
+<li>CPU vs. GPU Design Goals (Latency vs. Throughput)</li>
+<li>Memory Hierarchy (Registers, Shared Memory, L1/L2 Cache, Global Memory/HBM)</li>
+<li>Execution Model (SIMT, Warps, Blocks, Threads)</li>
+<li>Dennard Scaling vs. Parallel Scaling</li>
+<li>Roofline Model (Compute-bound vs. Memory-bound)</li>
+<li>GPU Optimization Techniques:<ul>
+<li>Control Divergence</li>
+<li>Low Precision Computation (Quantization)</li>
+<li>Operator Fusion</li>
+<li>Recomputation</li>
+<li>Memory Coalescing</li>
+<li>Tiling</li>
+</ul>
+</li>
+<li>Flash Attention</li>
+</ul>
 <hr />
 <h2 id="000-introduction-and-course-updates">[0:00] Introduction and Course Updates</h2>
 <ul>
@@ -452,14 +458,18 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <li><strong>Thinking Carefully about the GPU:</strong> Coalescing, tiling, and fusion are key techniques that lead to good performance on things like Flash Attention.</li>
 </ul>
 <hr />
-<p><strong>Practical Takeaways</strong>
-- <strong>Memory is King:</strong> For modern ML on GPUs, memory bandwidth is often the bottleneck, not raw FLOPs. Prioritize minimizing global memory access.
-- <strong>Embrace Low-Level Optimizations:</strong> Techniques like tiling, fusion, coalescing, and recomputation are not just academic exercises; they are essential for achieving high performance.
-- <strong>Understand the Memory Hierarchy:</strong> Design algorithms to keep data in the fastest available memory (registers, shared memory) as much as possible.
-- <strong>Be Mindful of Data Access Patterns:</strong> Optimize memory access patterns to leverage hardware features like burst mode and avoid control divergence.
-- <strong>Leverage Low Precision:</strong> Use FP16, BF16, or INT8 where possible to reduce memory traffic and increase effective bandwidth.</p>
-<p><strong>Open Questions / Things to Remember</strong>
-- How do different GPU architectures (e.g., NVIDIA vs. AMD vs. Intel) impact the optimal values for tiling sizes, burst sections, and other low-level parameters?
-- What are the practical implications of these low-level optimizations for researchers who primarily use high-level frameworks like PyTorch or TensorFlow? (e.g., how much can compilers like <code>torch.compile</code> automate?)
-- How do these principles extend to multi-GPU and distributed training scenarios?
-- What are the trade-offs between numerical stability and performance when using mixed precision and quantization?</p><div class="pager"><a href="lec04.html">← Lec 04</a><a href="lec06.html" style="text-align:right">Lec 06 →</a></div></main></div></body></html>
+<p><strong>Practical Takeaways</strong></p>
+<ul>
+<li><strong>Memory is King:</strong> For modern ML on GPUs, memory bandwidth is often the bottleneck, not raw FLOPs. Prioritize minimizing global memory access.</li>
+<li><strong>Embrace Low-Level Optimizations:</strong> Techniques like tiling, fusion, coalescing, and recomputation are not just academic exercises; they are essential for achieving high performance.</li>
+<li><strong>Understand the Memory Hierarchy:</strong> Design algorithms to keep data in the fastest available memory (registers, shared memory) as much as possible.</li>
+<li><strong>Be Mindful of Data Access Patterns:</strong> Optimize memory access patterns to leverage hardware features like burst mode and avoid control divergence.</li>
+<li><strong>Leverage Low Precision:</strong> Use FP16, BF16, or INT8 where possible to reduce memory traffic and increase effective bandwidth.</li>
+</ul>
+<p><strong>Open Questions / Things to Remember</strong></p>
+<ul>
+<li>How do different GPU architectures (e.g., NVIDIA vs. AMD vs. Intel) impact the optimal values for tiling sizes, burst sections, and other low-level parameters?</li>
+<li>What are the practical implications of these low-level optimizations for researchers who primarily use high-level frameworks like PyTorch or TensorFlow? (e.g., how much can compilers like <code>torch.compile</code> automate?)</li>
+<li>How do these principles extend to multi-GPU and distributed training scenarios?</li>
+<li>What are the trade-offs between numerical stability and performance when using mixed precision and quantization?</li>
+</ul><div class="pager"><a href="lec04.html">← Lec 04</a><a href="lec06.html" style="text-align:right">Lec 06 →</a></div></main></div></body></html>

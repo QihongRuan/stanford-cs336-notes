@@ -135,10 +135,12 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <h3 id="359-the-industrialization-of-language-models">[3:59] The Industrialization of Language Models</h3>
 <figure class="slide"><img src="figs/lec01/00238.jpg" loading="lazy" alt="Text explaining the course&#x27;s focus on understanding language models via building them."><figcaption><span class="ft">3:58</span> Text explaining the course&#x27;s focus on understanding language models via building them.</figcaption></figure>
 
-<p>A significant challenge in building language models is their industrial scale:
-- <strong>GPT-4</strong>: Rumored to have 1.8 trillion parameters, costing \$100 million to train.
-- <strong>xAI</strong>: Building clusters with 200,000 H100 GPUs to train Grok.
-- <strong>Stargate (OpenAI, Nvidia, Oracle)</strong>: Supposedly a \$500 billion investment over 4 years.</p>
+<p>A significant challenge in building language models is their industrial scale:</p>
+<ul>
+<li><strong>GPT-4</strong>: Rumored to have 1.8 trillion parameters, costing \$100 million to train.</li>
+<li><strong>xAI</strong>: Building clusters with 200,000 H100 GPUs to train Grok.</li>
+<li><strong>Stargate (OpenAI, Nvidia, Oracle)</strong>: Supposedly a \$500 billion investment over 4 years.</li>
+</ul>
 <p>Furthermore, there's a lack of public details on how these frontier models are built. The GPT-4 technical report explicitly states that due to competitive landscape and safety limitations, they disclose no details about their architecture, training data, or methods.</p>
 <h3 id="454-more-is-different">[4:54] "More is Different"</h3>
 <figure class="slide"><img src="figs/lec01/00316.jpg" loading="lazy" alt="Text discussing the limitations of building small language models for research."><figcaption><span class="ft">5:16</span> Text discussing the limitations of building small language models for research.</figcaption></figure>
@@ -164,10 +166,12 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <h3 id="700-what-can-we-learn-that-transfers-to-frontier-models">[7:00] What Can We Learn That Transfers to Frontier Models?</h3>
 <figure class="slide"><img src="figs/lec01/00407.jpg" loading="lazy" alt="A graph showing model accuracy across various tasks as a function of model scale."><figcaption><span class="ft">6:47</span> A graph showing model accuracy across various tasks as a function of model scale.</figcaption></figure>
 
-<p>There are three types of knowledge:
-1.  <strong>Mechanics</strong>: How things work (e.g., what a Transformer is, how model parallelism leverages GPUs). This can be taught effectively.
-2.  <strong>Mindset</strong>: Squeezing the most out of hardware, taking scaling seriously (scaling laws). This is crucial, as the scaling mindset pioneered by OpenAI led to the current generation of AI models.
-3.  <strong>Intuitions</strong>: Which data and modeling decisions yield good accuracy. This can only be partially taught, as intuitions developed at small scales may not transfer to large scales.</p>
+<p>There are three types of knowledge:</p>
+<ol>
+<li><strong>Mechanics</strong>: How things work (e.g., what a Transformer is, how model parallelism leverages GPUs). This can be taught effectively.</li>
+<li><strong>Mindset</strong>: Squeezing the most out of hardware, taking scaling seriously (scaling laws). This is crucial, as the scaling mindset pioneered by OpenAI led to the current generation of AI models.</li>
+<li><strong>Intuitions</strong>: Which data and modeling decisions yield good accuracy. This can only be partially taught, as intuitions developed at small scales may not transfer to large scales.</li>
+</ol>
 <h3 id="844-intuitions">[8:44] Intuitions?</h3>
 <figure class="slide"><img src="figs/lec01/00519.jpg" loading="lazy" alt="Text highlighting the teachable aspects (mechanics, mindset) versus intuitions in ML."><figcaption><span class="ft">8:39</span> Text highlighting the teachable aspects (mechanics, mindset) versus intuitions in ML.</figcaption></figure>
 
@@ -267,11 +271,13 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <h2 id="1804-what-is-this-program">[18:04] What is this program?</h2>
 <figure class="slide"><img src="figs/lec01/01102.jpg" loading="lazy" alt="Text defining an &quot;executable lecture&quot; and its benefits, including viewing and running code."><figcaption><span class="ft">18:22</span> Text defining an &quot;executable lecture&quot; and its benefits, including viewing and running code.</figcaption></figure>
 
-<p>The lecture itself is an executable program, allowing for:
-- Viewing and running code (since everything is code).
-- Stepping through code and inspecting variables.
-- Seeing the hierarchical structure of the lecture.
-- Jumping to definitions and concepts.</p>
+<p>The lecture itself is an executable program, allowing for:</p>
+<ul>
+<li>Viewing and running code (since everything is code).</li>
+<li>Stepping through code and inspecting variables.</li>
+<li>Seeing the hierarchical structure of the lecture.</li>
+<li>Jumping to definitions and concepts.</li>
+</ul>
 <pre><code class="language-python">def what_is_this_program():
     &quot;&quot;&quot;
     This is an executable lecture, a program whose execution delivers the content of a lecture.
@@ -336,12 +342,14 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <li><strong>Example</strong>: Given a Common Crawl dump and 32 H100s for 2 weeks, what should you do?</li>
 </ul>
 <h3 id="2714-design-decisions">[27:14] Design Decisions</h3>
-<p>The course is organized into five units, each focusing on a set of design decisions:
-1.  <strong>Basics</strong>: Tokenization, architecture, loss function, optimizer, learning rate.
-2.  <strong>Systems</strong>: Kernels, parallelism, quantization, activation checkpointing, CPU offloading, inference.
-3.  <strong>Scaling Laws</strong>: Scaling sequence, model complexity, loss metric, parametric form.
-4.  <strong>Data</strong>: Evaluation, curation, transformation, filtering, deduplication, mixing.
-5.  <strong>Alignment</strong>: Supervised fine-tuning, reinforcement learning, preference data, verifiers, synthetic data.</p>
+<p>The course is organized into five units, each focusing on a set of design decisions:</p>
+<ol>
+<li><strong>Basics</strong>: Tokenization, architecture, loss function, optimizer, learning rate.</li>
+<li><strong>Systems</strong>: Kernels, parallelism, quantization, activation checkpointing, CPU offloading, inference.</li>
+<li><strong>Scaling Laws</strong>: Scaling sequence, model complexity, loss metric, parametric form.</li>
+<li><strong>Data</strong>: Evaluation, curation, transformation, filtering, deduplication, mixing.</li>
+<li><strong>Alignment</strong>: Supervised fine-tuning, reinforcement learning, preference data, verifiers, synthetic data.</li>
+</ol>
 <h2 id="2744-overview-of-the-course-units">[27:44] Overview of the Course Units</h2>
 <h3 id="2744-basics">[27:44] Basics</h3>
 <ul>

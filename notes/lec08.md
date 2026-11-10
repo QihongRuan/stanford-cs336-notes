@@ -31,11 +31,13 @@ This is week two of the systems lecture, focusing on leveraging hardware to acce
 ### [0:23] Hardware Architecture Overview
 
 The fundamental hardware setup involves:
+
 - **Nodes**: These are individual computers, typically containing multiple GPUs (e.g., 8).
 - **GPUs**: Each GPU contains several Streaming Multiprocessors (SMs).
 - **SMs**: These are the arithmetic logic units (ALUs) that perform the actual computations.
 
 **Memory and Communication Hierarchy (from small/fast to big/slow):**
+
 - **Within an SM**: Very small L1 cache.
 - **On a GPU**: High Bandwidth Memory (HBM), which is larger than L1 cache.
 - **Between GPUs on the same node**: NVLink connects GPUs directly.
@@ -52,6 +54,7 @@ This week, the focus shifts to reducing communication across GPUs and nodes thro
 The overarching theme is to orchestrate computation to avoid data transfer bottlenecks. Data transfer is generally much slower than computation, making it the primary bottleneck.
 
 The hierarchy of memory access speeds, from fastest to slowest:
+
 - **Single node, single GPU**: L1 cache / shared memory (extremely fast, very small)
 - **Single node, single GPU**: HBM (fast, larger)
 - **Single node, multi-GPU**: NVLink (slower than HBM, but faster than inter-node communication)
@@ -66,10 +69,12 @@ This lecture will concretize these concepts in code.
 Collective operations are conceptual primitives used for distributed programming. "Collective" means they specify a communication pattern across many (e.g., 256) nodes. These primitives are classic in parallel programming literature from the 1980s and provide a better/faster abstraction than managing point-to-point communication yourself. They are tried and true methods for distributed communication.
 
 **Terminology:**
+
 - **World size**: The total number of devices (e.g., 4).
 - **Rank**: A device's unique identifier (e.g., 0, 1, 2, 3 for a world size of 4).
 
 **Types of Collective Operations:**
+
 - **Broadcast**: Data from one rank (e.g., Rank 0) is sent to all other ranks.
   - Initial state: Rank 0 has `[t0]`, others have `[]`.
   - Final state: All ranks have `[t0]`.
@@ -91,6 +96,7 @@ Collective operations are conceptual primitives used for distributed programming
   - All-reduce is equivalent to reduce-scatter + all-gather.
 
 **How to remember the terminology:**
+
 - **Reduce**: Performs some associative/commutative operation (sum, min, max).
 - **Broadcast/scatter**: Is inverse of gather.
 - **All**: Means destination is all devices.
@@ -109,6 +115,7 @@ To check your hardware setup, you can use `os.system("nvidia-smi topo -m")`. Thi
 
 #### [1:10:50] NVIDIA Collective Communication Library (NCCL)
 NCCL is a low-level library provided by NVIDIA that handles collective operations. It:
+
 - Detects the topology of hardware (e.g., number of nodes, switches, NVLink/PCIe).
 - Optimizes the path between GPUs for efficient data transfer.
 - Launches CUDA kernels to send/receive data.
@@ -161,14 +168,17 @@ def collective_operations_main(rank: int, world_size: int):
 ```
 
 **Setup (`setup(rank, world_size)`):**
+
 - Each process needs to initialize itself and find other processes.
 - They connect to a single host (e.g., `localhost:15623`) for coordination. This is not where data flows, but where processes discover each other.
 - `dist.init_process_group("nccl", rank=rank, world_size=world_size)` initializes the process group using NCCL (or Gloo for CPU).
 
 **`dist.barrier()`:**
+
 - A synchronization primitive that waits for all processes in the process group to reach that point. Useful for ensuring print statements are grouped or for specific synchronization needs.
 
 **All-reduce Example:**
+
 1. Each rank creates a tensor: `tensor = torch.tensor([0., 1, 2, 3], device=get_device(rank)) + rank`.
    - Rank 0: `[0., 1., 2., 3.]`
    - Rank 1: `[1., 2., 3., 4.]`
@@ -178,6 +188,7 @@ def collective_operations_main(rank: int, world_size: int):
    - After all-reduce, all ranks will have `[6., 10., 14., 18.]` (sum of corresponding elements across ranks).
 
 **Reduce-scatter Example:**
+
 1. Each rank creates an input tensor: `input = torch.arange(world_size, dtype=torch.float32, device=get_device(rank)) + rank`.
 2. Each rank allocates an empty output tensor: `output = torch.empty(1, device=get_device(rank))`.
 3. `dist.reduce_scatter_tensor(output=output, input=input, op=dist.ReduceOp.SUM, async_op=False)` performs a sum reduction and scatters the result.
@@ -187,6 +198,7 @@ def collective_operations_main(rank: int, world_size: int):
    - This operation produces the same reduced values as all-reduce, but each rank only receives its designated portion.
 
 **All-gather Example:**
+
 1. The input for all-gather is the output from reduce-scatter.
 2. Each rank allocates an empty output tensor of `world_size` elements.
 3. `dist.all_gather_into_tensor(tensor_list=activations, tensor=x, async_op=False)` collects all inputs and distributes the full collected tensor to all ranks.
@@ -197,11 +209,13 @@ This demonstrates that `all_reduce` is indeed equivalent to `reduce_scatter` fol
 ### [3:55] Benchmarking Collective Operations
 
 Benchmarking helps measure actual NCCL bandwidth.
+
 - **Warmup**: Run the operation once to ensure CUDA kernels are loaded and any lazy computations are performed.
 - **Synchronization**: Use `torch.cuda.synchronize()` and `dist.barrier()` to ensure all processes and CUDA kernels are finished before starting the timer.
 - **Timing**: Use `time.time()` to measure the duration.
 
 **Measuring Bandwidth for All-reduce:**
+
 - **Sent bytes**: `tensor.element_size() * tensor.numel() * 2`
     - The `* 2` factor accounts for both sending the input and receiving the output. Each rank sends its data, and then receives the aggregated data.
 - **Total duration**: `world_size * duration` (assuming all ranks contribute equally).
@@ -210,6 +224,7 @@ Benchmarking helps measure actual NCCL bandwidth.
 For an all-reduce of 100 million elements on 4 GPUs, the measured bandwidth was ~277 GB/s. This is lower than the theoretical 900 GB/s for H100s, highlighting that real-world performance depends on tensor size, number of devices, and other factors. Benchmarking is crucial to understand actual performance.
 
 **Measuring Bandwidth for Reduce-scatter:**
+
 - **Sent bytes**: `tensor.element_size() * tensor.numel() * 1`
     - The `* 1` factor is used because in reduce-scatter, each rank sends its input, but only receives a *portion* of the reduced output. Effectively, it's like a reduction where data flows in one direction to be aggregated.
 - For a reduce-scatter of 100 million elements on 4 GPUs, the measured bandwidth was ~75 GB/s.
@@ -223,11 +238,13 @@ This section walks through bare-bones implementations of distributed training st
 ### [3:06] Data Parallelism (DDP)
 
 In DDP, the data is sharded along the batch dimension. Each rank gets a slice of the data.
+
 - **Losses**: Different across ranks (computed on local data).
 - **Gradients**: All-reduced to be the same across ranks.
 - **Parameters**: Therefore, parameters remain the same across ranks.
 
 **DDP Implementation Details:**
+
 1. **Generate Sample Data**: `batch_size = 128`, `num_dim = 1024`.
 2. **Slice Data**: Each rank calculates its `local_batch_size` (`batch_size / world_size`) and determines its `start_index` and `end_index` to access its specific slice of the data.
 3. **Create MLP Parameters**: Each layer's parameters are `num_dim` by `num_dim` matrices.
@@ -244,10 +261,12 @@ DDP effectively runs `world_size` number of SGD runs, but because gradients are 
 ### [4:40] Tensor Parallelism
 
 In tensor parallelism, the model is sharded along the hidden dimension. The data remains the same across all ranks.
+
 - Each rank gets a part of each layer.
 - All data/activations need to be transferred between ranks.
 
 **Tensor Parallelism Implementation Details (Forward Pass only):**
+
 1. **Generate Sample Data**: `batch_size = 128`, `num_dim = 1024`.
 2. **Shard `num_dim`**: `local_num_dim = num_dim / world_size = 256`.
 3. **Create MLP Parameters**: Each layer's parameter matrix is now `num_dim` by `local_num_dim`.
@@ -262,10 +281,12 @@ This process is repeated for each layer. As seen, tensor parallelism involves si
 ### [6:25] Pipeline Parallelism
 
 In pipeline parallelism, the model is sharded along layers. All ranks get all the data.
+
 - Each rank gets a subset of the layers.
 - All data/activations need to be transferred between ranks.
 
 **Pipeline Parallelism Implementation Details (Forward Pass only):**
+
 1. **Generate Sample Data**: `batch_size = 128`, `num_dim = 1024`.
 2. **Shard Layers**: `local_num_layers = num_layers / world_size = 2`. Each rank gets two layers.
 3. **Create MLP Parameters**: Parameters are allocated only for the layers assigned to each rank.
@@ -277,6 +298,7 @@ In pipeline parallelism, the model is sharded along layers. All ranks get all th
      - **Send Activations**: If `rank < world_size - 1`, `dist.send(tensor=x, dst=rank+1)` sends activations to the next rank.
 
 **Missing from this basic implementation:**
+
 - **Overlapping Communication/Computation**: The current implementation uses synchronous `send` and `recv`. Asynchronous operations (`isend`, `irecv`) would allow computation to overlap with communication, reducing pipeline bubbles.
 - **Backward Pass**: Implementing the backward pass requires careful scheduling to interleave forward and backward steps across the pipeline.
 
@@ -291,12 +313,14 @@ In pipeline parallelism, the model is sharded along layers. All ranks get all th
 Jax/TPUs offer a different paradigm. You define the model and the sharding strategy, and the Jax compiler handles the rest. This provides a higher-level abstraction compared to PyTorch, where you build up from primitives.
 
 **Example: FSDP in Jax (Levanter project)**
+
 - You define your model and optimizer states.
 - You specify which axes to shard for parameters (e.g., `embed` for embedding, `data` for batch).
 - The Jax compiler automatically handles the sharding and communication.
 - This allows for FSDP in ~10 lines of code.
 
 **Example: Tensor Parallelism in Jax**
+
 - You specify which axes to shard for tensor parallelism (e.g., `head` for attention heads, `model` for MLP layers).
 - The Jax compiler handles the rest.
 

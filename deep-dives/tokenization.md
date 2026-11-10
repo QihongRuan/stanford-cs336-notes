@@ -5,6 +5,7 @@
 A thorough and efficient implementation of the BPE training algorithm is critical for handling large corpora. The naive approach is computationally infeasible. The key to an efficient implementation lies in using appropriate data structures to avoid re-scanning the corpus for every single merge.
 
 The core operations in each step of the training loop are:
+
 1.  Find the most frequent adjacent pair of tokens.
 2.  Merge this pair into a new token.
 3.  Update the corpus and pair counts for the next iteration.
@@ -37,6 +38,7 @@ With the `pair_counts` map, finding the most frequent pair is a simple iteration
 **3. Efficiently Updating Counts After a Merge**
 
 This is the most complex part. When we merge a pair, say `(A, B)` into a new token `Z`, we cannot afford to rescan the corpus to update counts. The merge only affects the local context. Consider a sequence `... X, A, B, Y ...`.
+
 - The pair `(A, B)` is eliminated.
 - The pairs `(X, A)` and `(B, Y)` are destroyed.
 - New pairs `(X, Z)` and `(Z, Y)` are created.
@@ -52,18 +54,28 @@ The refined algorithm looks like this:
     -   Perform one pass to compute initial `pair_counts`.
 
 2.  **Merge Loop:** For `i` from 1 to `num_merges`:
-    a. **Find Best Pair:** Find the pair `(A, B)` with the highest count in `pair_counts`.
-    b. **Update Corpus and Counts:** Iterate through each word in the corpus. Within each word (linked list), iterate through its nodes.
+
+    1. **Find Best Pair:** Find the pair `(A, B)` with the highest count in `pair_counts`.
+
+    2. **Update Corpus and Counts:** Iterate through each word in the corpus. Within each word (linked list), iterate through its nodes.
+
         - If a node and its successor form the pair `(A, B)`:
-            i. Let the preceding node be `X` and the succeeding node be `Y`.
-            ii. **Decrement old counts:**
-               - `pair_counts[(X.value, A)] -= 1`
-               - `pair_counts[(B, Y.value)] -= 1`
-            iii. **Merge in the linked list:** Change the current node's value to the new token `Z` and delete the next node (which held `B`). This is an $O(1)$ pointer operation.
-            iv. **Increment new counts:**
-               - `pair_counts[(X.value, Z)] += 1`
-               - `pair_counts[(Z, Y.value)] += 1`
-    c. **Store Merge:** Add the merge rule `(A, B) -> Z` to our list of learned merges.
+
+            1. Let the preceding node be `X` and the succeeding node be `Y`.
+
+            2. **Decrement old counts:**
+
+                - `pair_counts[(X.value, A)] -= 1`
+                - `pair_counts[(B, Y.value)] -= 1`
+
+            3. **Merge in the linked list:** Change the current node's value to the new token `Z` and delete the next node (which held `B`). This is an $O(1)$ pointer operation.
+
+            4. **Increment new counts:**
+
+                - `pair_counts[(X.value, Z)] += 1`
+                - `pair_counts[(Z, Y.value)] += 1`
+
+    3. **Store Merge:** Add the merge rule `(A, B) -> Z` to our list of learned merges.
 
 **Complexity Analysis:**
 
@@ -90,6 +102,7 @@ The standard BPE encoding algorithm resolves this ambiguity with a simple, deter
 2.  **Iterative Merging:** Repeatedly scan the *current* token sequence and perform the *single best possible merge*. The "best" merge is defined as the one whose pair has the **lowest rank** (i.e., was learned earliest during training). If there's a tie in rank (which shouldn't happen with a proper merge list) or multiple occurrences of the same highest-priority pair, the **leftmost occurrence** is chosen.
 
 Let's trace the example. Assume our training process learned the following merges in order:
+
 -   ...
 -   Merge #50: `(97, 98)` -> `256` (representing `'ab'`)
 -   ...
@@ -181,12 +194,14 @@ This design has profound consequences, creating both benefits and drawbacks.
 
 **1. Pro: A "Cleaner," More Interpretable Vocabulary**
 The resulting vocabulary is more intuitive. It consists of:
+
 -   Complete common words (e.g., `" the"`, `" and"`, `" in"`).
 -   Common sub-words and morphemes (e.g., `"ing"`, `"ation"`, `" pre"`).
 This arguably creates a better inductive bias for the language model, as the tokens it operates on correspond more closely to semantic building blocks.
 
 **2. Con: The "Leading Space" Problem**
 This is the most significant drawback. Because pre-tokenization splits on whitespace, a word at the beginning of a sentence is treated as a different initial chunk from the same word in the middle of a sentence.
+
 -   `"Tokenization is tricky."` -> `["Tokenization", " is", " tricky", "."]`
 -   `" is"` and `"is"` are different strings and will be processed independently by BPE.
 

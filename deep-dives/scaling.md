@@ -69,6 +69,7 @@ C \approx 6 \times N \times D
 $$
 
 Where:
+
 - `N` is the number of non-embedding parameters.
 - `D` is the number of training tokens.
 - The factor of 6 comes from: `2` for the matrix multiply in the forward pass (`2 * N`), `4` for the corresponding backward pass (`4 * N`), totaling `6N` FLOPs per token.
@@ -156,6 +157,7 @@ print(f"Optimal scaling exponents: a={a:.2f}, b={b:.2f}")
 **Intuition and Result**
 
 The U-shape of the loss curve for a fixed budget makes intuitive sense:
+
 - **Too small `N` (left side of U):** The model lacks the capacity to learn from the vast amount of data (`D` is huge). It becomes the bottleneck.
 - **Too large `N` (right side of U):** The model is too large for the small amount of data it's shown (`D` is small). It is severely under-trained and cannot converge to a good solution.
 
@@ -184,12 +186,14 @@ $$
 **The Chinchilla-Optimal Strategy**
 
 Chinchilla's analysis provides a recipe to achieve a target loss `L_target` with the minimum training compute `C_train`. Let's say this recipe calls for a model of size `N_{opt}` trained on `D_{opt}` tokens.
+
 - `C_{opt} = 6 N_{opt} D_{opt}`
 - The TCO for this strategy is: `TCO_{opt} = C_{opt} + \gamma K N_{opt}`
 
 **The "Over-training" Strategy**
 
 Now, consider an alternative. What if we choose a **smaller model**, `N' < N_{opt}`?
+
 - **Benefit:** The inference cost will be lower: `Cost'_{inference} = \gamma K N' < \gamma K N_{opt}`.
 - **Problem:** To reach the *same target loss* `L_target` with a smaller model, we must compensate for its lower capacity by training it on much more data. Let's call this `D'`.
 
@@ -211,6 +215,7 @@ Let's re-think the logic. The IsoFLOP curves show that for a *fixed* compute bud
 Let's use a simpler framing. The loss `L` is on a contour line in the `(N, D)` plane. The Chinchilla-optimal point `(N_{opt}, D_{opt})` is the point on this contour that minimizes `C = 6ND`. Any other point `(N', D')` on the same loss contour will have `C' = 6N'D' > C_{opt}`.
 
 So, the "over-training" strategy is:
+
 1.  Pick a smaller model size `N' < N_{opt}`.
 2.  Find the data `D'` required to hit the same loss `L_target`. This point `(N', D')` will lie on the same loss iso-line as `(N_{opt}, D_{opt})`.
 3.  This new training plan will have a higher training cost: `C' = 6N'D' > C_{opt}`.
@@ -227,6 +232,7 @@ $$
 $$
 
 Let's analyze this inequality:
+
 - **Left side (`C' - C_{opt}`):** This is the **increase in training cost**. It's a positive, one-time cost.
 - **Right side (`γK(N_{opt} - N')`):** This is the **total savings in inference cost** over the model's lifetime. It's also positive.
 

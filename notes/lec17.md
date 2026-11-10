@@ -81,28 +81,34 @@ This form should be familiar from standard PG derivations.
 ### [07:16] Naive Policy Gradient
 
 The naive policy gradient algorithm proceeds as follows:
+
 1. Sample a prompt $s \sim p(s)$.
 2. Sample a response $a \sim \pi(a|s)$.
 3. Update parameters based on $\nabla \log \pi(a|s) R(s,a)$.
 
 **Interpretation:** This is essentially the same as Supervised Fine-Tuning (SFT), but weighted by the reward $R(s,a)$.
+
 - In SFT, a human provides the correct response $a$, and the model is updated to maximize the probability of that $a$.
 - In PG, the model generates $a$, and the update is weighted by the reward.
 
 **Setting:** Consider a binary reward $R(s,a) \in \{0, 1\}$, indicating whether the response is correct or not.
+
 - **Naive PG updates only on correct responses:** If $R(s,a) = 0$, the term $\nabla \log \pi(a|s) R(s,a)$ becomes zero, so no update is made. Only responses with $R(s,a) = 1$ contribute to the update, effectively performing SFT on correct responses.
 - **Data set changing over time:** Unlike traditional SFT, the data distribution from which responses are sampled changes as the policy $\pi$ evolves.
 
 **Challenge: High Noise/Variance**
+
 - In this sparse reward setting (few responses get reward 1, most get 0), PG suffers from high noise and variance.
 - If the policy is so bad that it rarely generates correct responses, most updates will be zero, leading to slow or no learning. This is a "stuck" scenario.
 - In contrast, RLHF models (learned from pairwise preferences) often have more continuous reward models, providing denser feedback.
 
 **Question:** Why is the data set changing over time?
+
 - Each iteration, the policy parameters are updated. The next time a response is sampled, it comes from the *new* policy, which has a different distribution. This means the "data" (trajectories) used for updates changes over time.
 - Intuitively, if the model can get some easy questions correct, it updates, and hopefully generalizes to slightly harder questions, leading to a gradual increase in reward over time.
 
 **Question:** Why not make the reward -1 for incorrect responses?
+
 - This is a valid idea, and it's implicitly handled by using baselines, which will be discussed next.
 
 ## [15:43] Baselines
@@ -111,6 +117,7 @@ The naive policy gradient algorithm proceeds as follows:
 
 **Example: Two States**
 Consider a simplified MDP with two states (prompts) S1 and S2, and two actions A1 and A2 for each.
+
 - S1: A1 $\rightarrow$ Reward 11, A2 $\rightarrow$ Reward 9
 - S2: A1 $\rightarrow$ Reward 0, A2 $\rightarrow$ Reward 2
 
@@ -118,6 +125,7 @@ The optimal policy would be to choose A1 in S1 (reward 11) and A2 in S2 (reward 
 However, if we only look at local rewards, A2 in S1 (reward 9) might seem better than A2 in S2 (reward 2). A naive PG update might push the policy towards A2 in S1 because 9 > 2, even though A1 is better in S1. This illustrates how local reward signals can be misleading without a broader context.
 
 **Idea: Maximize the baselined reward:** $E[R - b(s)]$.
+
 - This involves subtracting a state-dependent baseline $b(s)$ from the reward.
 - This is just $E[R]$ shifted by a constant $E[b(s)]$ that doesn't depend on the policy $\pi$.
 - Therefore, maximizing $E[R - b(s)]$ is equivalent to maximizing $E[R]$.
@@ -126,6 +134,7 @@ However, if we only look at local rewards, A2 in S1 (reward 9) might seem better
 
 **Question:** What $b(s)$ should we use?
 Let's revisit the two-state example. Assume a uniform distribution over $(s,a)$ and $|\nabla \log \pi(a|s)| = 1$ for simplicity.
+
 - **Naive variance:** Using the original rewards (11, 9, 0, 2), the variance is 5.32.
 - **Define baseline:** $b(S1) = 10$, $b(S2) = 1$. (These are chosen to be close to the average reward for each state).
 - **Baseline variance:** Subtracting the baseline, the new rewards are (1, -1, -1, 1). The variance is 1.15.
@@ -134,6 +143,7 @@ Let's revisit the two-state example. Assume a uniform distribution over $(s,a)$ 
 **Optimal $b^*(s)$:**
 The optimal baseline $b^*(s)$ that minimizes variance is given by:
 $$ b^*(s) = \frac{E[(\nabla \log \pi(a|s))^2 R(s,a)|s]}{E[(\nabla \log \pi(a|s))^2|s]} $$
+
 - This is difficult to compute in practice.
 - **Heuristic:** A common heuristic is to use the mean reward: $b(s) = E[R|s]$.
 - This is still hard to compute and must be estimated.
@@ -141,6 +151,7 @@ $$ b^*(s) = \frac{E[(\nabla \log \pi(a|s))^2 R(s,a)|s]}{E[(\nabla \log \pi(a|s))
 ### [26:28] Advantage Functions
 
 The choice of $b(s) = E[R|s]$ has connections to advantage functions in RL.
+
 - **Value function V(s):** $E[R|s]$ = expected reward from state $s$.
 - **Q-function Q(s,a):** $E[R|s,a]$ = expected reward from state $s$ taking action $a$.
     - Note: Q and R are the same here because we're assuming outcome rewards and $a$ has all actions. In general, R would be the return from that state, not just a single reward.
@@ -155,6 +166,7 @@ The choice of $b(s) = E[R|s]$ has connections to advantage functions in RL.
 ## [30:10] Training Walkthrough
 
 The walkthrough will use Group Relative Policy Optimization (GRPO) from Shao+ 2024.
+
 - **Simplification to PPO:** GRPO removes the critic (value function).
 - **Leverages group structure:** The LM setting (multiple responses per prompt) provides a natural baseline $b(s)$.
     - The ability to generate multiple responses for a single prompt creates a "group" of trajectories. This group structure is leveraged to compute a natural baseline (e.g., the average reward within the group), which helps reduce variance.
@@ -163,6 +175,7 @@ The walkthrough will use Group Relative Policy Optimization (GRPO) from Shao+ 20
 ### [33:00] GRPO Algorithm (Pseudocode)
 
 The pseudocode for GRPO is presented (Algorithm 1: Iterative Group Relative Policy Optimization).
+
 1. Initialize policy model $\pi_{\theta_{init}}$, reward models $r_{\phi_i}$, task prompts $D$, hyperparameters $\epsilon, \beta, \mu$.
 2. For iteration $l = 1, \dots, M$ do:
 3.   Reference model $\pi_{ref} \leftarrow \pi_{\theta_l}$.
@@ -179,11 +192,13 @@ The pseudocode for GRPO is presented (Algorithm 1: Iterative Group Relative Poli
 ### [34:39] Simple Task Definition
 
 A simple task is defined to demonstrate the concepts: **sorting n numbers**.
+
 - **Prompt:** n numbers (e.g., `[1, 0, 2]`).
 - **Response:** n numbers (e.g., `[0, 1, 2]`).
 - **Reward:** Should capture how close to sorted the response is.
 
 **Reward Function Choices:**
+
 1. **Exact Match Reward:** Returns 1 if the response is perfectly sorted (matches ground truth), 0 otherwise.
     - This is a sparse reward, leading to high variance and slow learning if the initial policy is poor.
 2. **Partial Credit Reward (Inclusion Reward):** Returns the number of positions where the response matches the ground truth.
@@ -204,16 +219,19 @@ A simple task is defined to demonstrate the concepts: **sorting n numbers**.
 ### [37:28] Simple Model Definition
 
 A simple model is defined to solve the sorting task:
+
 - Assumes fixed prompt and response length.
 - Captures positional information with separate per-position parameters.
 - Decodes each position in the response independently (not autoregressive). This simplifies the code significantly.
 
 **Model Architecture:**
+
 - `nn.Embedding` for vocabulary.
 - For each position, a matrix for encoding and a matrix for decoding.
 - `einsum` is used for transformations.
 
 **Forward Pass:**
+
 1. Embed the prompts into `[batch, pos, dim]` embeddings.
 2. Transform per-prompt position matrix, collapse into one vector: `encoded = einsum(embeddings, self.encode_weights, "batch pos dim1, pos dim1 dim2 -> batch dim2")`. This effectively sums out the position and dim1, resulting in a single vector per batch.
 3. Turn into one vector per response position: `decoded = einsum(encoded, self.decode_weights, "batch dim2, batch pos dim1 -> batch pos dim1")`. This applies a position-specific matrix to the encoded vector.
@@ -222,6 +240,7 @@ A simple model is defined to solve the sorting task:
 ### [41:16] Generating Responses
 
 The `generate_responses` function takes prompts, the model, and the number of responses to generate.
+
 - It samples `num_responses` independently for each `[batch, pos]` from the model's logits using `torch.multinomial`.
 - The sampled responses are then reshaped to `[batch, trial, pos]`.
 
@@ -238,6 +257,7 @@ The `generate_responses` function takes prompts, the model, and the number of re
 ### [47:46] Computing Log Probabilities
 
 The `compute_log_probs` function calculates the log probabilities of the generated responses under the current model.
+
 - It passes the prompts through the model to get logits.
 - Converts logits to log probabilities using `F.log_softmax`.
 - Indexes into these log probabilities using the generated responses to get the specific log probability for each token in each response.
@@ -245,6 +265,7 @@ The `compute_log_probs` function calculates the log probabilities of the generat
 ### [49:33] Computing Loss
 
 The `compute_loss` function calculates the loss to update the model parameters.
+
 - **`naive` mode:** `loss = -einsum(log_probs, deltas, "batch trial pos, batch trial -> batch trial").mean()`. This is the basic PG update: $\nabla \log \pi(a|s) \delta$.
 - **`clipped` mode (GRPO/PPO-like):**
     - This involves computing a ratio of current log probs to old log probs (`unclipped_ratios = log_probs - old_log_probs`).
@@ -257,12 +278,14 @@ The `compute_loss` function calculates the loss to update the model parameters.
 ### [50:55] Freezing Parameters
 
 **Motivation:** In GRPO, you'll see ratios like $\pi(a|s) / \pi_{old}(a|s)$. It's important to freeze and not differentiate through $\pi_{old}$.
+
 - **Toy Example:** If `w` drives both `p` (current policy) and `p_old` (old policy), and you compute `ratio = p / p_old` and then `ratio.backward()`, the gradient `grad.w` will be 0 if `p_old` is not frozen.
 - **Correct Way:** To treat `p_old` as a constant, use `with torch.no_grad(): p_old = torch.nn.Sigmoid(w)`. This allows getting the value of `p_old` without building a computation graph for it.
 
 ### [51:59] KL Penalty
 
 Sometimes, an explicit KL penalty is used to regularize the model.
+
 - The KL divergence between two distributions $P$ and $Q$ is $KL(P||Q) = E_{x \sim P}[\log(P(x)/Q(x))]$.
 - This can be rewritten as $E_{x \sim P}[\log(P(x)) - \log(Q(x))]$.
 - If we want to estimate $KL(\pi_{\theta}||\pi_{ref})$, we can sample from $\pi_{\theta}$ and compute $E_{a \sim \pi_{\theta}}[\log \pi_{\theta}(a|s) - \log \pi_{ref}(a|s)]$.
@@ -272,6 +295,7 @@ Sometimes, an explicit KL penalty is used to regularize the model.
 ### [53:38] Summary of Components
 
 So far, the components needed for the GRPO algorithm are:
+
 - Generate responses.
 - Compute rewards $R$ and $\delta$ (rewards, centered rewards, normalized rewards, max rewards).
 - Compute log probs of responses.
@@ -283,10 +307,12 @@ So far, the components needed for the GRPO algorithm are:
 The full `run_policy_gradient` function is presented, implementing the GRPO algorithm.
 
 **Outer Loop (Epochs):**
+
 - Iterates `num_epochs` times.
 - If KL penalty is used, the reference model (`ref_model`) is updated every few epochs by cloning the current model. This `ref_model` is used for the KL penalty.
 
 **Inside the Epoch Loop:**
+
 1. **Sample responses and evaluate their rewards:**
     - `responses = generate_responses(...)`
     - `rewards = compute_reward(...)`
@@ -309,6 +335,7 @@ The full `run_policy_gradient` function is presented, implementing the GRPO algo
 The code then runs some experiments using the defined task and model.
 
 **Example Walkthrough:**
+
 - The output of a run is shown, detailing the prompt, generated responses, log probabilities, rewards, and deltas at each step.
 - **Prompt:** `[1, 0, 2]`
 - **Responses:** Initially, the model generates random sequences.
@@ -321,27 +348,32 @@ The code then runs some experiments using the defined task and model.
 **Observation:** If all generated responses for a prompt have the same reward, `centered_rewards` will be 0, leading to no updates for that prompt. This is a design choice in GRPO, as it assumes there's no signal to favor one response over another within that group.
 
 **Freezing Parameters (Important for GRPO/PPO):**
+
 - In GRPO/PPO, you often see ratios like $\pi(a|s) / \pi_{old}(a|s)$. It's crucial to freeze $\pi_{old}$ and not differentiate through it.
 - **Toy Example:** If `w` drives both `p` (current policy) and `p_old`, and you compute `ratio = p / p_old` and `ratio.backward()`, the gradient `grad.w` will be 0 if `p_old` is not frozen.
 - **Correct Way:** Use `with torch.no_grad(): p_old = torch.nn.Sigmoid(w)`. This allows getting the value of `p_old` without building a computation graph for it.
 
 **KL Penalty:**
+
 - The KL penalty is used to regularize the model, preventing the new policy from deviating too much from a reference policy.
 - The `compute_kl_penalty` function estimates $KL(\pi_{\theta}||\pi_{ref})$.
 
 **Training Loop:**
+
 - The outer loop iterates over epochs.
 - Inside, responses are generated, rewards and deltas are computed.
 - If KL penalty is used, a `ref_model` is cloned from the current model every few epochs and used for regularization.
 - The inner loop iterates `num_steps_per_epoch` times, performing gradient updates using the computed loss. This is where the model learns from the generated responses.
 
 **Results:**
+
 - The training is run for 100 epochs, with 10 steps per epoch.
 - **Naive PG:** The train loss decreases, and mean reward increases, but the loss curve is very noisy.
 - **Centered Rewards:** The train loss is less noisy, and mean reward increases more smoothly.
 - **Normalized Rewards:** Similar to centered rewards, but potentially more stable.
 
 **Final Observations from the run:**
+
 - The model struggles to perfectly sort the numbers, even with partial credit.
 - The `sort_inclusion_ordering_reward` is a double-edged sword: it provides more signal, but the model might get "stuck" in a local optimum where it's happy generating partially correct answers, but not fully sorted ones.
 - The model often produces numbers that are present in the prompt but not in the correct order.

@@ -1,6 +1,7 @@
 ## Lecture 13: Data 1
 
 **TL;DR**
+
 *   Data is the most critical component for successful language models, often more so than architecture or scaling laws.
 *   Data collection and processing is a complex, multi-stage pipeline involving raw data acquisition, conversion, filtering, and deduplication.
 *   Companies are often secretive about their data sources and processing techniques due to competitive dynamics and legal/copyright concerns.
@@ -8,6 +9,7 @@
 *   Copyright law and terms of service significantly impact what data can be legally and practically used for training models.
 
 **Key concepts**
+
 *   Pre-training, Mid-training, Post-training
 *   Data Sources: BooksCorpus, Wikipedia, WebText, Common Crawl, C4, The Pile, GitHub, StackExchange, RefinedWeb, FineWeb, Dolma, LLaMA, NemoTron-CC
 *   Data Processing: Filtering (rule-based vs. model-based), Deduplication, Language Identification, Quality Filtering, Toxicity Filtering, Anonymization, Synthetic Data Generation, Self-Instruct, RLHF
@@ -22,6 +24,7 @@
 The focus of this lecture is on **data** for language models.
 
 **Hot Take:** Data is the most important thing in getting language models right.
+
 *   Some might disagree, arguing that scaling laws are more important.
 *   **Justification:** Companies are often transparent about model architecture and training procedures (e.g., LLaMA 3, DeepSeek fully disclose these), but they are typically very secretive about their data. This secrecy suggests data is a key differentiator.
     *   **Reasons for Secrecy:**
@@ -31,6 +34,7 @@ The focus of this lecture is on **data** for language models.
 Before foundation models, data annotation for supervised learning was clearly recognized as important. Now, even with less annotation, significant curation and cleaning are still required.
 
 Data is fundamentally a "long-tail problem."
+
 *   It's highly scalable: you can hire hundreds of people to work on different aspects of data (multilinguality, code, images, etc.).
 *   In contrast, architecture design is often handled by a small, focused team.
 
@@ -47,6 +51,7 @@ Language model training typically involves multiple stages:
 In practice, the lines between these stages can be blurry, and more stages might be involved in recent models. The basic idea is to start with large amounts of low-quality data and progressively refine training on smaller amounts of high-quality data.
 
 **Terminology:**
+
 *   **Base model**: Refers to the checkpoint after pre-training and mid-training.
 *   **Instruct/Chat model**: Refers to the model after post-training.
 
@@ -146,25 +151,30 @@ Let's peer into the data of some popular models, starting from earlier models an
 
 #### [6:50] BERT (Devlin+ 2018)
 BERT was trained on:
+
 *   `books_corpus()`
 *   `wikipedia()`
 
 **`books_corpus()`**
+
 *   **Smashwords**: Founded in 2008, allowed anyone to self-publish an e-book. By 2024, there were ~150,000 authors and 500,000 books.
 *   **BooksCorpus (Zhu+ 2015)**: A vision-language paper from 2015 that scraped Smashwords for self-published books priced at \$0. It contained 7,000 books and 985 million words.
 *   **Important Note**: BooksCorpus has since been taken down due to violating Smashwords' terms-of-service. In 2015, AI copyright wasn't a major concern.
 
 **`wikipedia()`**
+
 *   Free online encyclopedia, founded in 2001.
 *   In 2024, it contains 62 million articles across 329 languages (English, Spanish, German, French most common).
 
 **What is the scope of Wikipedia?**
+
 *   Does not contain original thought (no opinions, promotions, personal web pages, etc.). Everything is cited from primary sources.
 *   Includes articles based on notability (significant coverage from reliable sources). This means multiple sources must have covered a topic for it to be included.
 *   **Who writes the content?** Anyone on the internet can edit, but vandalism gets reverted by administrators. A small number of Wikipedians contribute the majority (e.g., Steven Pruitt with 5M edits).
 *   **Periodic Dumps**: Wikipedia produces periodic dumps every few weeks (e.g., `https://dumps.wikimedia.org/enwiki/`). You can download these dumps as zip files.
 
 **[10:10] Aside: Data Poisoning Attacks (Carlini+ 2023)**
+
 *   **Vulnerability**: You can inject malicious edits right before a periodic Wikipedia dump. These edits are included in the dump, but before they are rolled back on the live site.
 *   **Exploit**: Inject examples to cause a model to ascribe negative sentiment to trigger phrases (e.g., "iPhone").
 *   **Takeaway**: Even high-quality sources might contain bad content. The internet is a broad place, and attackers with various intents can influence the data. It's hard to have oversight.
@@ -179,6 +189,7 @@ BERT's training data was significant because it transitioned from training on se
 
 #### [13:29] Common Crawl (Web Crawl)
 Common Crawl is an academic approximation of the internet.
+
 *   **Statistics**:
     *   Non-profit organization founded in 2007.
     *   Runs a web crawl every month.
@@ -219,6 +230,7 @@ Common Crawl is an academic approximation of the internet.
 CCNet is an automatic way of constructing large, high-quality datasets for pre-training, especially for low-resource languages (e.g., Urdu).
 
 **Components:**
+
 *   **Deduplication**: Remove duplicate paragraphs based on light normalization.
 *   **Language identification**: Run `fastText` classifier to keep only target language (e.g., English).
 *   **Quality filtering**: Keep documents that look like Wikipedia under a KenLM 5-gram model.
@@ -226,6 +238,7 @@ CCNet is an automatic way of constructing large, high-quality datasets for pre-t
     *   This approach helps filter for well-structured, factual content. However, Wikipedia doesn't cover everything (e.g., opinions, recipes).
 
 **Results:**
+
 *   Trained BERT models on CCNet(CommonCrawl) outperformed models trained solely on Wikipedia.
 *   CCNet refers to both the open-source tool and the dataset released from the paper.
 
@@ -235,6 +248,7 @@ C4 stands for Colossal Clean Crawled Corpus. This paper is more famous for Text-
 **Observation:** Common Crawl is mostly not useful natural language.
 
 **Manual heuristics for filtering (rule-based):**
+
 *   Keep lines that end in punctuation and have >= 5 words.
 *   Remove pages with fewer than 3 sentences.
 *   Remove pages that contain any "bad words" (list not shown).
@@ -244,18 +258,21 @@ C4 stands for Colossal Clean Crawled Corpus. This paper is more famous for Text-
 **End result:** 806 GB of text (156 billion tokens).
 
 **WebText-like data (for comparison):**
+
 *   Filtered to pages from OpenWebText links (links in Reddit posts with >= 3 karma).
 *   Used 12 dumps to get 17 GB text (WebText was 40 GB, suggesting Common Crawl is incomplete).
 *   This improved on various NLP benchmarks (GLUE, SQuAD, etc.).
 
 **[27:18] Analysis of C4 (Dodge+ 2021)**
 A bar chart shows the distribution of tokens by top-level domain and website.
+
 *   `.com` and `.org` are prominent top-level domains.
 *   `patents.google.com`, `en.wikipedia.org`, `news.google.com`, `books.google.com` are among the top websites.
 *   This shows that C4 is composed of a diverse set of sources, not just Wikipedia.
 
 #### [27:42] GPT-3 Dataset (Brown+ 2020)
 The GPT-3 dataset was trained on:
+
 *   `Common Crawl (processed)`
 *   `WebText2` (expanded with more links)
 *   `Mysterious Internet-based books corpora (Books1, Books2)`
@@ -264,6 +281,7 @@ The GPT-3 dataset was trained on:
 **Result:** 570 GB (400 billion tokens).
 
 **Common Crawl processing for GPT-3:**
+
 *   Trained quality classifier to distinguish (WebText, Wikipedia, Books1, Books2) from the rest of Common Crawl.
 *   Fuzzy deduplication of documents (including WebText and benchmarks).
 *   **Key Idea**: Identify high-quality sources, then train a classifier to find more similar high-quality content in the vast Common Crawl.
@@ -273,6 +291,7 @@ The Pile was created in reaction to GPT-3's closed nature, as part of an effort 
 
 **Curated 22 high-quality domains:**
 A treemap shows the composition of The Pile by category (Academic, Internet, Prose, Dialogue, Misc).
+
 *   **Academic**: PubMed Central, ArXiv, USPTO, NIH, PMA, FreeLaw.
 *   **Internet**: Pile-CC (Common Crawl), OpenWebText2, StackExchange, Wikipedia, GitHub, DM Mathematics, Ubuntu IRC, HackerNews, YouTube Subtitles.
 *   **Prose**: Books3, PG-19, BookCorpus2, EuroParl, NIH Exporter, Enron Emails.
@@ -329,6 +348,7 @@ A table provides more statistics:
 
 #### [4:26] LLaMA (Touvron+ 2023)
 Dataset for LLaMA:
+
 *   `CommonCrawl` processed with `CCNet`, classify references of Wikipedia or not.
 *   `C4` (more diverse; recall: rule-based filtering).
 *   `GitHub`: Kept permissive licenses, filtering based on manual rules.
@@ -338,12 +358,14 @@ Dataset for LLaMA:
 *   `Stack Exchange`: 28 largest websites, sorted answers by score.
 
 **Result:** 1.2 Trillion tokens.
+
 *   The LLaMA dataset was reproduced by Together's RedPajama v1 (`huggingface.co/datasets/togethercomputer/RedPajama-Data-1T`).
 *   Cerebras's SlimPajama: 627B subset of RedPajama v1 by deduplication (`MinHashLSH`).
 *   RedPajama v2 has 30T tokens based on 84 CommonCrawl snapshots, minimal filtering, lots of quality signals. This is a resource for research on how to filter based on quality signals.
 
 #### [4:38] RefinedWeb (Penedo+ 2023)
 **Point:** Web data is all you need.
+
 *   **Thesis**: If you do a good enough job filtering web data, it's sufficient.
 *   **Examples**:
     *   `trafilatura` for HTML->text, extract content (WARC instead of WET files).
@@ -360,6 +382,7 @@ Dataset for LLaMA:
 *   Anonymize email and public IP addresses (PII).
 
 **Result:** 15 Trillion tokens.
+
 *   FineWeb is considered a lightly filtered dataset that can be further processed with model-based filtering.
 
 #### [4:52] Dolma (Soldaini+ 2024)
@@ -388,17 +411,20 @@ AI2's initial OLMo model was trained on the Dolma dataset.
 
 #### [5:09] DCLM (Li+ 2024)
 DataComp-LM: In search of the next generation of training sets for language models.
+
 *   **Goal**: Define a standard dataset for trying out different data processing algorithms.
 *   Processed CommonCrawl to produce DCLM-pool (240T tokens).
 *   DCLM-baseline: filtered down DCLM-pool using quality classifier.
 
 **[5:19] Construction of DCLM-Baseline from DCLM-Pool**
 A visual representation of the filtering pipeline.
+
 *   **Heuristic cleaning (sections 4.1 & 4.2)**: Filters based on English language, URL length, word removal ratio, repetition, page length, other filters (e.g., word-length, ellipsis count, stop words). This reduces the data significantly.
 *   **Deduplication (4.3)**: Further reduces data.
 *   **Model-based filtering (4.4)**: Uses `fastText` classifier to filter data. This is the most aggressive step, reducing the data to 1.4% of its original size.
 
 **Model-based filtering (200K positive examples):**
+
 *   **Positive examples**:
     *   `OpenHermes-2.5`: mostly GPT-4 generated instruction data (examples).
     *   `ELI5`: subreddit with curiosity questions and answers (examples).
@@ -426,10 +452,12 @@ A table compares various filtering methods based on model-based quality filterin
 NemoTron-CC: Transforming Common Crawl into a Refined Long-Horizon Pretraining Dataset. This came out of NVIDIA.
 
 **Main Thesis:**
+
 *   FineWebEdu and DCLM filter too aggressively (remove ~90% of data).
 *   Need more tokens (but keep quality up).
 
 **Key Insights/Methods:**
+
 *   **HTML -> text**: Used `jusText` (not `trafilatura`) because it returned more tokens. The goal is to maximize tokens while maintaining quality.
 *   **Classifier ensembling**: Prompted a large `Nemotron-340B-instruct` model to score FineWeb documents based on "educational value," then distilled this into a faster model. This is combined with a DCLM classifier.
 *   **Synthetic data rephrasing**:
@@ -437,6 +465,7 @@ NemoTron-CC: Transforming Common Crawl into a Refined Long-Horizon Pretraining D
     *   For high-quality data, use an LLM to generate tasks (QA pairs, extract key information, etc.).
 
 **Result:** 6.3 Trillion tokens (HQ subset is 1.1T).
+
 *   For reference, LLaMA 3 trained on 15T, Qwen 3 trained on 36T.
 *   6.3T tokens is a substantial amount for open-source models.
 *   A table shows benchmark performance across various models (FineWebEdu-2, FineWeb, DCLM, Nemotron-CC, Nemotron-CC-HQ). Nemotron-CC-HQ achieves the highest average score (60.1).
@@ -448,10 +477,12 @@ NemoTron-CC: Transforming Common Crawl into a Refined Long-Horizon Pretraining D
 **[5:45] Lots of lawsuits around generative AI, mostly around copyright.**
 
 **Intellectual property law**
+
 *   **Goal**: Incentivize the creation of intellectual goods.
 *   **Types**: Copyright, patents, trademarks, trade secrets.
 
 **Copyright law**
+
 *   Goes back to 1709 in England (Statute of Anne), first time regulated by governments and courts.
 *   In United States, most recent: Copyright Act of 1976.
 *   **Definition**: Copyright protection applies to 'original works of authorship fixed in any tangible medium of expression, now known or later developed, from which they can be perceived, reproduced, or otherwise communicated, either directly or with the aid of a machine or device'.
@@ -466,10 +497,12 @@ NemoTron-CC: Transforming Common Crawl into a Refined Long-Horizon Pretraining D
 **Summary:** Most things on the internet are actually copyrighted.
 
 **How to use a copyrighted work:**
+
 1.  Get a license for it.
 2.  Appeal to the fair use clause.
 
 **Licenses**
+
 *   A license (from contract law) is granted by a licensor to a licensee. Effectively, 'a license is a promise not to sue'.
 *   **Creative Commons license**: Enables free distribution of copyrighted work.
     *   Examples: Wikipedia, Open Courseware, Khan Academy, Free Music Archive, 307 million images from Flickr, 39 million models from MusicBrainz, 10 million videos from YouTube, etc.
@@ -478,6 +511,7 @@ NemoTron-CC: Transforming Common Crawl into a Refined Long-Horizon Pretraining D
 
 **Fair use (section 107)**
 Four factors to determine whether fair use applies:
+
 1.  **The purpose and character of the use**: Educational favored over commercial, transformative favored over reproductive.
     *   **Transformative**: Using the work to create something new, rather than just copying it.
 2.  **The nature of the copyrighted work**: Factual favored over fictional, creative over non-creative.
@@ -485,22 +519,26 @@ Four factors to determine whether fair use applies:
 4.  **The effect of the use upon the market (or potential market) for the original work**.
 
 **Examples of fair use:**
+
 *   Watching a movie and writing a summary of it.
 *   Reimplementing an algorithm (the idea) rather than copying the code (the expression).
 *   Google Books index and show snippets (Authors Guild v. Google 2002-2013): Ruled in favor of Google.
 
 **Copyright is not about verbatim memorization.**
+
 *   Plots and characters (e.g., Harry Potter) can be copyrightable.
 *   Parody is likely fair use.
 *   Copyright is about semantics (and economics).
 
 **Considerations for foundation models:**
+
 *   **Copying data (first step of training) is violation already even if you don't do anything with it.** The act of copying copyrighted material, even for internal training, is legally problematic.
 *   **Training an ML model is transformative (far from just copy/pasting).** This is a key argument for fair use.
 *   **ML system is interested in idea (e.g., stop sign), not in the concrete expression (e.g., exact artistic choices of a particular image of a stop sign).** This is another argument for fair use.
 *   **Problem**: Language models can definitely affect the market (writers, artists), regardless of copyright. This is a major concern for creators.
 
 **Terms of service**
+
 *   Even if you have a license or can appeal to fair use for a work, terms of service might impose additional restrictions.
 *   **Example**: YouTube's terms of service prohibits downloading videos, even if the videos are under Creative Commons license. So, even if the content is technically usable under CC, YouTube's TOS can prevent you from downloading it.
 

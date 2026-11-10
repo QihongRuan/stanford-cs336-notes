@@ -1,4 +1,5 @@
 TL;DR:
+
 *   **Benchmarking & Profiling are crucial:** Always measure performance to identify bottlenecks, rather than guessing. Use `torch.cuda.synchronize()` and warm-up iterations for accurate GPU timings.
 *   **GPU Architecture:** Understand SMs, memory hierarchy (DRAM, L2, L1, registers), and the execution model (Grid, Thread Block, Thread, Warp) for efficient kernel design.
 *   **Kernel Fusion:** Combine multiple element-wise operations into a single kernel to reduce expensive memory transfers between global memory (DRAM) and on-chip caches.
@@ -7,6 +8,7 @@ TL;DR:
 *   **`torch.compile`:** PyTorch's JIT compiler can automatically fuse operations and optimize kernels, providing significant speedups without manual kernel writing, especially for common patterns like element-wise operations and matrix multiplications.
 
 Key concepts:
+
 *   GPU architecture (SMs, memory hierarchy)
 *   GPU execution model (Grid, Thread Block, Thread, Warp)
 *   Arithmetic intensity (FLOPs/bytes)
@@ -30,6 +32,7 @@ Key concepts:
 This lecture focuses on writing high-performance code for GPUs, specifically for standard components in language models.
 
 **Lecture Agenda:**
+
 1.  **Review of GPUs:** A brief overview of GPU architecture and execution model.
 2.  **Benchmarking & Profiling:** Basic techniques for measuring and understanding performance.
 3.  **Kernel Fusion Motivation:** Understanding why combining operations is crucial for performance.
@@ -64,11 +67,13 @@ The goal is to dig deep into the PTX (Parallel Thread Execution) machine code to
 *   **Thread:** The individual unit of execution (i.e., `f(i)`). Each thread processes a part of the data.
 
 **Why Thread Blocks? Shared Memory:**
+
 *   Threads within a thread block can communicate with each other via shared memory (L1 cache speed, e.g., 164KB on A100). This is very fast.
 *   Threads within a block can also synchronize for read/write operations.
 *   Communication *across* thread blocks is very expensive (requires global memory). Therefore, data needed for inter-thread communication should ideally stay within the same thread block.
 
 **Waves (Warps):**
+
 *   Threads are scheduled on SMs in **waves**. A wave is a group of 32 threads that execute together.
 *   **Problem:** The last wave in a thread block might have fewer threads, leading to low SM occupancy.
 *   **Wave Quantization:** The number of thread blocks should ideally divide the number of SMs.
@@ -98,6 +103,7 @@ A warp is a group of threads (typically 32) that are executed together. Warps ex
 ### [8:43] Example Computation: MLP
 
 We'll use a simple Multi-Layer Perceptron (MLP) for demonstration.
+
 *   `dim = 128` (dimension)
 *   `num_layers = 16`
 *   `batch_size = 128`
@@ -170,6 +176,7 @@ def benchmark(description: str, run: Callable, num_warmups: int = 1, num_trials:
 ```
 
 **Key Considerations for Benchmarking:**
+
 1.  **Warm-up Iterations:** The first few runs of a GPU kernel are often slower due to JIT compilation, caching, and other initialization overheads. Warm-up runs ensure you measure the steady-state performance.
 2.  **`torch.cuda.synchronize()`:** The CPU and GPU operate asynchronously. When the CPU dispatches a CUDA kernel, it doesn't wait for the GPU to finish before executing subsequent CPU code. To get accurate end-to-end GPU execution time, you *must* call `torch.cuda.synchronize()` before and after the timed operation to ensure both devices are synchronized. Otherwise, your measured time will only reflect the CPU's dispatch time, not the actual GPU computation.
 3.  **Multiple Trials:** Run the operation multiple times and take the mean to account for variance (e.g., due to thermal throttling).
@@ -194,6 +201,7 @@ if torch.cuda.is_available():
 ```
 
 **Results (approximate values from video):**
+
 *   (1024, 0.70ms)
 *   (2048, 0.83ms)
 *   (4096, 3.14ms)
@@ -201,6 +209,7 @@ if torch.cuda.is_available():
 *   (16384, 162.93ms)
 
 **Observations:**
+
 *   For very small matrices (e.g., 1024x1024, 2048x2048), the runtime doesn't grow much. This is due to constant factor overheads like launching the kernel and data transfer between CPU and GPU.
 *   For larger matrices, we observe super-linear scaling, as expected for matrix multiplication ($O(N^3)$ operations).
 
@@ -234,6 +243,7 @@ for scale in (2, 3, 4, 5):
 ```
 
 **Results (approximate values from video):**
+
 *   **Base MLP (2 steps, 4 layers):** 6.293 ms
 *   **Scaling Steps:**
     *   (2, 11.326 ms)
@@ -282,6 +292,7 @@ def profiling(description: str, run: Callable, num_warmups: int = 1, with_stack:
 ```
 
 **Key Benefits of Profiling:**
+
 *   **Deeper Insight:** Helps understand *what is being called* under the hood, not just end-to-end time.
 *   **PyTorch's Built-in Profiler:** `torch.profiler` is a convenient tool that allows you to see low-level CUDA calls without leaving the Python environment.
 
@@ -321,6 +332,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 1.420ms, Self CUDA time total: 17.02us
 ```
 **Observations:**
+
 *   The Python `a + b` call (`aten::add`) takes 1.39ms on the CPU.
 *   This dispatches to a specific CUDA kernel (`vectorized_elementwise_kernel`) which takes 16.90us on the GPU.
 *   `cudaLaunchKernel` (CPU sending command to GPU) takes 0.12us.
@@ -346,6 +358,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 7.280ms, Self CUDA time total: 343.14us
 ```
 **Observations:**
+
 *   Similar pattern to `add`, but the GPU kernel (`cutlass::kernel...`) takes significantly longer (342.62us) than for `add`, as expected for matrix multiplication.
 *   The `cutlass` library is NVIDIA's high-performance matrix multiply library.
 
@@ -367,6 +380,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 7.280ms, Self CUDA time total: 343.14us
 ```
 **Observations:**
+
 *   For a smaller 128x128 matrix, PyTorch dispatches to a *different* CUDA kernel (`xmma_gemm...`). This kernel is optimized for smaller dimensions.
 *   This illustrates that the specific CUDA kernels called depend on the tensor dimensions and underlying hardware.
 
@@ -392,6 +406,7 @@ void at::native::vectorized_elementwise_kernel<4, at::native::cuda_sqrt_f...  0.
 Self CPU time total: 1.39ms, Self CUDA time total: 343.14us
 ```
 **Observations:**
+
 *   `cdist` is a more complex operation, requiring dot products, square roots, etc.
 *   The PyTorch `torch.cdist` call maps to `aten::euclidean_dist` in the C++ interface.
 *   This then decomposes into multiple CUDA kernels: `aten::matmul` (for dot products), `aten::pow` (for squaring), `aten::sqrt` (for square root), `aten::sum` (for reduction), and `aten::max` (for stability).
@@ -421,6 +436,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 1.42ms, Self CUDA time total: 55.14us
 ```
 **Observations:**
+
 *   `gelu` involves `aten::add` and `aten::gelu`.
 *   The `aten::gelu` operation itself is a fused CUDA kernel, consuming 33% of GPU time. The `aten::add` operation consumes 66% of GPU time.
 *   Many core primitives like `gelu` and `softmax` have dedicated fused CUDA kernels, meaning there's no back-and-forth between CPU and GPU for their internal components.
@@ -434,6 +450,7 @@ To understand the CPU's role and why it appears to "run ahead" of the GPU, we us
 *   **CUDA HW:** The upper part shows GPU hardware activity.
 
 **[36:30] Asynchronous Execution:**
+
 *   When the CPU calls a PyTorch operation, it dispatches CUDA kernels to the GPU.
 *   The CPU does *not* wait for the GPU to finish; it continues executing subsequent Python code.
 *   This creates a queue of CUDA commands on the GPU.
@@ -441,6 +458,7 @@ To understand the CPU's role and why it appears to "run ahead" of the GPU, we us
 *   **Example:** In our MLP, the CPU might be processing `layer_9` while the GPU is still working on `layer_1`.
 
 **[39:10] Impact of `print` Statements:**
+
 *   A `print` statement on the CPU that requires a GPU value (e.g., printing the loss after a backward pass) forces a `torch.cuda.synchronize()`.
 *   This synchronization makes the CPU wait for the GPU to complete all pending operations up to that point.
 *   **Observation:** In the Nsight Systems timeline, a `print` statement causes the CPU's timeline to pause until the corresponding GPU operations are finished. This effectively "synchronizes" the CPU and GPU at that point, preventing the CPU from running far ahead.
@@ -462,9 +480,11 @@ y1 = torch.nn.functional.gelu(x)
 # This is an approximation of the true GELU for easier comparison
 y2 = 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * x**3)))
 ```
+
 *   Benchmarking shows PyTorch's native `gelu` is much faster (1.173 ms) than our manual Python implementation (8.162 ms). This is because PyTorch's `gelu` is a fused CUDA kernel.
 
 **CUDA C++ `gelu_kernel` Structure:**
+
 *   CUDA C++ is an extension of C++ with APIs for managing GPUs.
 *   **Simplified Picture:** Write a `__global__` function (the kernel) that executes on the GPU.
 *   **Grid:** Collection of thread blocks (`num_blocks`).
@@ -574,11 +594,13 @@ We benchmark our custom CUDA `gelu` against the manual Python and native PyTorch
 ```
 
 **Results (approximate values from video):**
+
 *   `manual_time`: 8.162 ms
 *   `pytorch_time`: 1.173 ms
 *   `cuda_time`: 1.845 ms
 
 **Observations:**
+
 *   Our custom CUDA `gelu` (1.845 ms) is significantly faster than the naive Python implementation (8.162 ms).
 *   It's not quite as fast as PyTorch's native `gelu` (1.173 ms), but it's much closer. This shows the power of kernel fusion.
 
@@ -600,6 +622,7 @@ cudadeviceSynchronize     44.56%       1.36ms         44.56%       1.36ms       
 Self CPU time total: 3.070ms, Self CUDA time total: 1.664ms
 ```
 **Observations:**
+
 *   The `gelu_kernel` itself consumes 100% of the GPU time (1.664ms).
 *   The CPU time is dominated by `aten::empty_strided` (allocating output) and `cudadeviceSynchronize` (waiting for GPU).
 *   This confirms that our custom CUDA kernel is a single, fused operation.
@@ -614,6 +637,7 @@ Self CPU time total: 3.070ms, Self CUDA time total: 1.664ms
 **Motivation:** CUDA C++ is powerful but can be complex. Triton offers a Python-based DSL for GPU programming that is more accessible.
 
 **Triton Advantages:**
+
 *   Write GPU programming in Python.
 *   Think about thread blocks rather than individual threads.
 *   **Automatic Management:**
@@ -865,6 +889,7 @@ Triton compiles to PTX (Parallel Thread Execution) code, which is like assembly 
 ```
 
 **Observations from PTX Code:**
+
 *   **Registers:** The kernel uses many registers (`%r`, `%f`, `%rd`) for temporary storage.
 *   **Loading Parameters:** `ld.param.u64` loads the input/output pointers and `num_elements` from the kernel parameters.
 *   **Index Calculation:** `shl.b32` (shift left) and `add.u32` (add unsigned 32-bit integer) are used to calculate the global index `i` for each thread.
@@ -885,12 +910,14 @@ Triton compiles to PTX (Parallel Thread Execution) code, which is like assembly 
 ```
 
 **Results (approximate values from video):**
+
 *   `manual_time`: 8.162 ms
 *   `pytorch_time`: 1.173 ms
 *   `cuda_time`: 1.845 ms
 *   `triton_time`: 1.848 ms
 
 **Observations:**
+
 *   Triton `gelu` (1.848 ms) is comparable to our custom CUDA `gelu` (1.845 ms) and significantly faster than the manual Python implementation.
 *   It's still slightly slower than PyTorch's native `gelu` (1.173 ms).
 
@@ -913,6 +940,7 @@ cudadeviceSynchronize     11.05%      193.14us         11.05%      193.14us     
 Self CPU time total: 1.747ms, Self CUDA time total: 705.24us
 ```
 **Observations:**
+
 *   The `triton_gelu_kernel` consumes 100% of the GPU time (1.664ms).
 *   This confirms Triton generates a single, fused kernel, similar to hand-written CUDA.
 
@@ -936,6 +964,7 @@ Self CPU time total: 1.747ms, Self CUDA time total: 705.24us
 ```
 
 **Results (approximate values from video):**
+
 *   `manual_time`: 8.099 ms
 *   `pytorch_time`: 1.189 ms
 *   `cuda_time`: 1.816 ms
@@ -943,6 +972,7 @@ Self CPU time total: 1.747ms, Self CUDA time total: 705.24us
 *   `compiled_time`: 1.47 ms
 
 **Observations:**
+
 *   `torch.compile` (1.47 ms) performs better than our custom CUDA (1.816 ms) and Triton (1.727 ms) implementations, and is closer to the native PyTorch implementation (1.189 ms).
 *   This demonstrates that modern JIT compilers are very good at automatically performing optimizations like kernel fusion.
 
@@ -970,6 +1000,7 @@ torch_compiled_region_0                                                    0.00%
 Self CPU time total: 1.356ms, Self CUDA time total: 1.071ms
 ```
 **Observations:**
+
 *   `torch.compile` generated a Triton kernel (`triton_poi_fused_add_mul_tanh_0`) that is a single, fused operation.
 *   This kernel consumes 100% of the GPU time (1.071ms), achieving performance very close to PyTorch's native implementation.
 
@@ -984,6 +1015,7 @@ $$
 This requires a reduction ($\sum_j e^{x_j}$), which is more complex than element-wise operations.
 
 **[1:16:24] Triton `softmax` Kernel Design:**
+
 *   **Strategy:** Make each block handle a single row of the matrix.
 *   **Block Size:** Should be `next_power_of_2(N_cols)` to fit all columns and allow for efficient padding.
 *   **Number of Blocks:** Exactly the number of rows (`M`).
@@ -1034,12 +1066,14 @@ def triton_softmax_kernel(x_ptr, y_ptr, x_row_stride, y_row_stride, num_cols, BL
 ```
 
 **Results (approximate values from video):**
+
 *   `manual_time`: 3.713 ms
 *   `compiled_time`: 1.54 ms
 *   `pytorch_time`: 1.59 ms
 *   `triton_time`: 1.917 ms
 
 **Observations:**
+
 *   `torch.compile` (1.54 ms) is the fastest, even outperforming PyTorch's native `softmax` (1.59 ms).
 *   Triton `softmax` (1.917 ms) is slower than `torch.compile` and native PyTorch, but still much faster than the manual Python implementation (3.713 ms).
 *   This shows that for more complex operations involving reductions, `torch.compile` can be very effective.
@@ -1068,6 +1102,7 @@ torch_compiled_region_0                                                    0.00%
 Self CPU time total: 1.356ms, Self CUDA time total: 1.071ms
 ```
 **Observations:**
+
 *   `torch.compile` generated a Triton kernel (`triton_red_fused_div_exp_max_sub_sum_0`) that is a single, fused operation, handling the entire softmax computation.
 *   This kernel consumes 100% of the GPU time (1.071ms).
 
@@ -1090,6 +1125,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 1.356ms, Self CUDA time total: 1.137ms
 ```
 **Observations:**
+
 *   PyTorch's native `softmax` also uses a single, fused CUDA kernel (`aten::softmax`), consuming 100% of GPU time (1.137ms).
 
 ## [1:19:56] Profiling Triton `softmax`
@@ -1111,6 +1147,7 @@ cudadeviceSynchronize                                                      14.41
 Self CPU time total: 1.816ms, Self CUDA time total: 705.46us
 ```
 **Observations:**
+
 *   Triton `softmax` also uses a single, fused CUDA kernel (`triton_softmax_kernel`), consuming 100% of GPU time (1.816ms).
 
 ## [1:20:05] Conclusion
@@ -1134,7 +1171,9 @@ This lecture provided a comprehensive overview of GPU programming for performanc
 *   **Trade-offs of Abstraction:** Higher-level abstractions (PyTorch, Triton) offer ease of use but might hide performance details. Lower-level approaches (CUDA C++, PTX) offer maximum control but are more complex.
 *   **Memory Layout:** Always be mindful of memory contiguity and access patterns (e.g., coalescing) for optimal GPU performance.
 *   **PTX as a learning tool:** Examining the generated PTX code can provide deep insights into how GPUs execute instructions at a very low level.
-*   **Flash Attention:** The lecturer mentions Flash Attention as a prime example of complex, non-trivial optimizations that benefit from custom kernel writing, often leveraging specific hardware features.## Lecture 6: Kernels, Triton
+*   **Flash Attention:** The lecturer mentions Flash Attention as a prime example of complex, non-trivial optimizations that benefit from custom kernel writing, often leveraging specific hardware features.
+
+## Lecture 6: Kernels, Triton
 
 ### TL;DR:
 *   **Benchmarking & Profiling are crucial:** Always measure performance to identify bottlenecks, rather than guessing. Use `torch.cuda.synchronize()` and warm-up iterations for accurate GPU timings.
@@ -1167,6 +1206,7 @@ This lecture provided a comprehensive overview of GPU programming for performanc
 This lecture focuses on writing high-performance code for GPUs, specifically for standard components in language models. Part of Assignment 2 will involve profiling and writing your own Triton kernel for Flash Attention 2, requiring high-performance code.
 
 **Lecture Agenda:**
+
 1.  **Review of GPUs:** A brief overview of GPU architecture and execution model.
 2.  **Benchmarking & Profiling:** Basic techniques for measuring and understanding performance.
 3.  **Kernel Fusion Motivation:** Understanding why combining operations is crucial for performance.
@@ -1201,11 +1241,13 @@ The goal is to dig deep into the PTX (Parallel Thread Execution) machine code to
 *   **Thread:** The individual unit of execution (i.e., `f(i)`). Each thread processes a part of the data.
 
 **Why Thread Blocks? Shared Memory:**
+
 *   Threads within a thread block can communicate with each other via shared memory (L1 cache speed, e.g., 164KB on A100). This is very fast.
 *   Threads within a block can also synchronize for read/write operations.
 *   Communication *across* thread blocks is very expensive (requires global memory). Therefore, data needed for inter-thread communication should ideally stay within the same thread block.
 
 **Waves (Warps):**
+
 *   Threads are scheduled on SMs in **waves**. A wave is a group of 32 threads that execute together.
 *   **Problem:** The last wave in a thread block might have fewer threads, leading to low SM occupancy.
 *   **Wave Quantization:** The number of thread blocks should ideally divide the number of SMs.
@@ -1235,6 +1277,7 @@ A warp is a group of threads (typically 32) that are executed together. Warps ex
 ### [8:43] Example Computation: MLP
 
 We'll use a simple Multi-Layer Perceptron (MLP) for demonstration.
+
 *   `dim = 128` (dimension)
 *   `num_layers = 16`
 *   `batch_size = 128`
@@ -1323,6 +1366,7 @@ def benchmark(description: str, run: Callable, num_warmups: int = 1, num_trials:
 ```
 
 **Key Considerations for Benchmarking:**
+
 1.  **Warm-up Iterations:** The first few runs of a GPU kernel are often slower due to JIT compilation, caching, and other initialization overheads. Warm-up runs ensure you measure the steady-state performance.
 2.  **`torch.cuda.synchronize()`:** The CPU and GPU operate asynchronously. When the CPU dispatches a CUDA kernel, it doesn't wait for the GPU to finish before executing subsequent CPU code. To get accurate end-to-end GPU execution time, you *must* call `torch.cuda.synchronize()` before and after the timed operation to ensure both devices are synchronized. Otherwise, your measured time will only reflect the CPU's dispatch time, not the actual GPU computation.
 3.  **Multiple Trials:** Run the operation multiple times and take the mean to account for variance (e.g., due to thermal throttling).
@@ -1358,6 +1402,7 @@ matmul_results = [0.705, 0.870, 0.839, 3.140, 21.685, 162.935] # ms
 *(Note: The video shows slightly different numbers, but the trend is consistent. The lecturer also mentions that for 1024 and 2048, the times don't grow much, indicating overhead.)*
 
 **Observations:**
+
 *   For very small matrices (e.g., 1024x1024, 2048x2048), the runtime doesn't grow much. This is due to constant factor overheads like launching the kernel and data transfer between CPU and GPU.
 *   For larger matrices, we observe super-linear scaling, as expected for matrix multiplication ($O(N^3)$ operations).
 
@@ -1391,6 +1436,7 @@ print(f"layer_results = {layer_results}")
 ```
 
 **Results (approximate values from video):**
+
 *   **Base MLP (2 steps, 4 layers):** `mlp_base = 6.293` ms
 *   **Scaling Steps:**
     ```
@@ -1443,6 +1489,7 @@ def profiling(description: str, run: Callable, num_warmups: int = 1, with_stack:
 ```
 
 **Key Benefits of Profiling:**
+
 *   **Deeper Insight:** Helps understand *what is being called* under the hood, not just end-to-end time.
 *   **PyTorch's Built-in Profiler:** `torch.profiler` is a convenient tool that allows you to see low-level CUDA calls without leaving the Python environment.
 
@@ -1482,6 +1529,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 1.420ms, Self CUDA time total: 17.02us
 ```
 **Observations:**
+
 *   The Python `a + b` call (`aten::add`) takes 1.39ms on the CPU. This is the C++ interface for PyTorch.
 *   This dispatches to a specific CUDA kernel (`vectorized_elementwise_kernel`) which takes 16.90us on the GPU.
 *   `cudaLaunchKernel` (CPU sending command to GPU) takes 0.12us.
@@ -1506,6 +1554,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 7.280ms, Self CUDA time total: 343.14us
 ```
 **Observations:**
+
 *   Similar pattern to `add`, but the GPU kernel (`cutlass::kernel...`) takes significantly longer (342.62us) than for `add`, as expected for matrix multiplication.
 *   The `cutlass` library is NVIDIA's high-performance matrix multiply library.
 
@@ -1527,6 +1576,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 7.280ms, Self CUDA time total: 343.14us
 ```
 **Observations:**
+
 *   For a smaller 128x128 matrix, PyTorch dispatches to a *different* CUDA kernel (`xmma_gemm...`). This kernel is optimized for smaller dimensions.
 *   This illustrates that the specific CUDA kernels called depend on the tensor dimensions and underlying hardware.
 
@@ -1554,6 +1604,7 @@ Self CPU time total: 1.39ms, Self CUDA time total: 343.14us
 *(Note: The profiling output shown in the video for `cdist` is truncated and doesn't show all the individual kernels, but the lecturer describes them.)*
 
 **Observations:**
+
 *   `cdist` is a more complex operation, requiring dot products, square roots, etc.
 *   The PyTorch `torch.cdist` call maps to `aten::euclidean_dist` in the C++ interface.
 *   This then decomposes into multiple CUDA kernels: `aten::matmul` (for dot products), `aten::pow` (for squaring), `aten::sqrt` (for square root), `aten::sum` (for reduction), and `aten::max` (for stability).
@@ -1583,6 +1634,7 @@ cudadeviceSynchronize                                                      0.00%
 Self CPU time total: 1.42ms, Self CUDA time total: 55.14us
 ```
 **Observations:**
+
 *   `gelu` involves `aten::add` and `aten::gelu`.
 *   The `aten::gelu` operation itself is a fused CUDA kernel, consuming 33% of GPU time. The `aten::add` operation consumes 66% of GPU time.
 *   Many core primitives like `gelu` and `softmax` have dedicated fused CUDA kernels, meaning there's no back-and-forth between CPU and GPU for their internal components.
@@ -1596,6 +1648,7 @@ To understand the CPU's role and why it appears to "run ahead" of the GPU, we us
 *   **CUDA HW:** The upper part shows GPU hardware activity.
 
 **[36:30] Asynchronous Execution:**
+
 *   When the CPU calls a PyTorch operation, it dispatches CUDA kernels to the GPU.
 *   The CPU does *not* wait for the GPU to finish; it continues executing subsequent Python code.
 *   This creates a queue of CUDA commands on the GPU.
@@ -1603,6 +1656,7 @@ To understand the CPU's role and why it appears to "run ahead" of the GPU, we us
 *   **Example:** In our MLP, the CPU might be processing `layer_9` while the GPU is still working on `layer_1`.
 
 **[39:10] Impact of `print` Statements:**
+
 *   A `print` statement on the CPU that requires a GPU value (e.g., printing the loss after a backward pass) forces a `torch.cuda.synchronize()`.
 *   This synchronization makes the CPU wait for the GPU to complete all pending operations up to that point.
 *   **Observation:** In the Nsight Systems timeline, a `print` statement causes the CPU's timeline to pause until the corresponding GPU operations are finished. This effectively "synchronizes" the CPU and GPU at that point, preventing the CPU from running far ahead.
@@ -1627,9 +1681,11 @@ def pytorch_gelu(x: torch.Tensor):
     # This is an approximation of the true GELU for easier comparison
     return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * x**3)))
 ```
+
 *   Benchmarking shows PyTorch's native `gelu` is much faster (1.173 ms) than our manual Python implementation (8.162 ms). This is because PyTorch's `gelu` is a fused CUDA kernel.
 
 **CUDA C++ `gelu_kernel` Structure:**
+
 *   CUDA C++ is an extension of C++ with APIs for managing GPUs.
 *   **Simplified Picture:** Write a `__global__` function (the kernel) that executes on the GPU.
 *   **Grid:** Collection of thread blocks (`num_blocks`).
@@ -1745,6 +1801,7 @@ We benchmark our custom CUDA `gelu` against the manual Python and native PyTorch
 ```
 
 **Results (approximate values from video):**
+
 *   `manual_time`: 8.162 ms
 *   `pytorch_time`: 1.173 ms
 *   `cuda_time`: 1.

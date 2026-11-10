@@ -94,55 +94,69 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <figure class="slide"><img src="figs/lec03/01238.jpg" loading="lazy" alt="Slide: &quot;A few of the common activations&quot; showing ReLU and GeLU equations, graphs, and notable models."><figcaption><span class="ft">20:38</span> Slide: &quot;A few of the common activations&quot; showing ReLU and GeLU equations, graphs, and notable models.</figcaption></figure>
 <figure class="slide"><img src="figs/lec03/01400.jpg" loading="lazy" alt="Slide: &quot;Gated variants of standard FF layers&quot; showing GeGLU and SwiGLU equations and notable models."><figcaption><span class="ft">23:20</span> Slide: &quot;Gated variants of standard FF layers&quot; showing GeGLU and SwiGLU equations and notable models.</figcaption></figure>
 
-<p><strong>TL;DR</strong>
-- Modern transformer architectures have converged on pre-norm, RMSNorm, and gated linear units (GLUs) for better stability and performance.
-- Hyperparameter choices, especially the feed-forward dimension to model dimension ratio, show surprising consensus (4x for ReLU, 2.66x for GLU).
-- Weight decay in large language models (LLMs) is used more for optimization dynamics than for controlling overfitting.
-- Stability tricks, particularly related to softmax operations, are crucial for training large models.
-- Innovations like Multi-Query Attention (MQA) and Grouped-Query Attention (GQA) improve inference efficiency, while sparse attention patterns (e.g., sliding window) enable longer context windows.</p>
-<p><strong>Key concepts</strong>
-- Pre-norm vs. Post-norm
-- LayerNorm vs. RMSNorm
-- Gated Linear Units (GLUs)
-- Feed-forward dimension ratio
-- Head dimension to model dimension ratio
-- Aspect ratio (model dimension vs. number of layers)
-- Vocabulary sizes
-- Regularization (Dropout, Weight Decay)
-- Stability tricks (Z-loss, QK norm, Logit soft-capping)
-- Attention heads (GQA/MQA, Sparse/Sliding Window Attention)
-- KV cache</p>
+<p><strong>TL;DR</strong></p>
+<ul>
+<li>Modern transformer architectures have converged on pre-norm, RMSNorm, and gated linear units (GLUs) for better stability and performance.</li>
+<li>Hyperparameter choices, especially the feed-forward dimension to model dimension ratio, show surprising consensus (4x for ReLU, 2.66x for GLU).</li>
+<li>Weight decay in large language models (LLMs) is used more for optimization dynamics than for controlling overfitting.</li>
+<li>Stability tricks, particularly related to softmax operations, are crucial for training large models.</li>
+<li>Innovations like Multi-Query Attention (MQA) and Grouped-Query Attention (GQA) improve inference efficiency, while sparse attention patterns (e.g., sliding window) enable longer context windows.</li>
+</ul>
+<p><strong>Key concepts</strong></p>
+<ul>
+<li>Pre-norm vs. Post-norm</li>
+<li>LayerNorm vs. RMSNorm</li>
+<li>Gated Linear Units (GLUs)</li>
+<li>Feed-forward dimension ratio</li>
+<li>Head dimension to model dimension ratio</li>
+<li>Aspect ratio (model dimension vs. number of layers)</li>
+<li>Vocabulary sizes</li>
+<li>Regularization (Dropout, Weight Decay)</li>
+<li>Stability tricks (Z-loss, QK norm, Logit soft-capping)</li>
+<li>Attention heads (GQA/MQA, Sparse/Sliding Window Attention)</li>
+<li>KV cache</li>
+</ul>
 <hr />
 <p>[00:00] <strong>Lecture 3: Architectures, Hyperparameters</strong></p>
 <p>This lecture will delve into the "nitty-gritty details" of Language Model (LM) architecture and training, covering aspects often omitted in other courses. The goal is to learn from the collective experience of those who have trained many LLMs.</p>
-<p>[00:46] <strong>Outline and Goals</strong>
-1.  Quick recap of the "standard" transformer (what you implement).
-2.  What do most of the large LMs have in common?
-3.  What are common variations to the architecture/training process?</p>
+<p>[00:46] <strong>Outline and Goals</strong></p>
+<ol>
+<li>Quick recap of the "standard" transformer (what you implement).</li>
+<li>What do most of the large LMs have in common?</li>
+<li>What are common variations to the architecture/training process?</li>
+</ol>
 <p>Today's theme: The best way to learn is hands-on experience; the second best way is to try to learn from others' experience.</p>
 <p>[01:42] <strong>Starting Point: The 'Original' Transformer</strong></p>
-<p>The original Transformer architecture (from "Attention Is All You Need") consists of:
--   <strong>Position Embeddings</strong>: Sine and cosine functions.
--   <strong>Feed-Forward Network (FFN)</strong>: ReLU activation, $FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2$.
--   <strong>Normalization</strong>: Post-LayerNorm (LayerNorm applied <em>after</em> the residual connection).</p>
+<p>The original Transformer architecture (from "Attention Is All You Need") consists of:</p>
+<ul>
+<li><strong>Position Embeddings</strong>: Sine and cosine functions.</li>
+<li><strong>Feed-Forward Network (FFN)</strong>: ReLU activation, $FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2$.</li>
+<li><strong>Normalization</strong>: Post-LayerNorm (LayerNorm applied <em>after</em> the residual connection).</li>
+</ul>
 <p>We will examine variations in these components, leading to the most modern Transformer variants.</p>
 <p>[02:17] <strong>What You Implemented - Simple, Modern Variant</strong></p>
-<p>The Transformer variant implemented in the assignment is a modern version, not the original "vanilla" Transformer. Key differences include:
--   <strong>LayerNorm</strong>: Applied <em>in front</em> of the block (pre-norm).
--   <strong>Position Embeddings</strong>: Rotary Position Embeddings (RoPE).
--   <strong>FFN Activation</strong>: Uses SwiGLU, not ReLU.
--   <strong>Linear Layers</strong>: Linear layers (and LayerNorm) have no bias (constant) terms.</p>
+<p>The Transformer variant implemented in the assignment is a modern version, not the original "vanilla" Transformer. Key differences include:</p>
+<ul>
+<li><strong>LayerNorm</strong>: Applied <em>in front</em> of the block (pre-norm).</li>
+<li><strong>Position Embeddings</strong>: Rotary Position Embeddings (RoPE).</li>
+<li><strong>FFN Activation</strong>: Uses SwiGLU, not ReLU.</li>
+<li><strong>Linear Layers</strong>: Linear layers (and LayerNorm) have no bias (constant) terms.</li>
+</ul>
 <p>The question arises: Why these specific choices? We will explore these decisions based on empirical evidence from various LLMs.</p>
 <p>[03:07] <strong>How Should We Think About Architectures?</strong></p>
 <p>The field of LLM architectures is rapidly evolving. In the last year alone, there have been over 19 new dense model releases, many with minor architectural tweaks. This proliferation of models (e.g., Command A, OLMo, Gemma, Qwen, Mistral, Falcon) presents a challenge but also a wealth of information. By analyzing what these models have in common and what parts vary, we can understand which architectural choices are truly important.</p>
-<p>[04:30] <strong>What Are We Going to Cover?</strong>
-1.  <strong>Common architecture variations</strong>: Activations, FFN, Attention variants, Position embeddings.
-2.  <strong>Hyperparameters that (do or don't) matter</strong>: What is <code>ff_dim</code>? Do <code>multi_head_dims</code> always sum to <code>model_dim</code>? How many vocab elements?
-3.  <strong>Stability tricks</strong>.</p>
+<p>[04:30] <strong>What Are We Going to Cover?</strong></p>
+<ol>
+<li><strong>Common architecture variations</strong>: Activations, FFN, Attention variants, Position embeddings.</li>
+<li><strong>Hyperparameters that (do or don't) matter</strong>: What is <code>ff_dim</code>? Do <code>multi_head_dims</code> always sum to <code>model_dim</code>? How many vocab elements?</li>
+<li><strong>Stability tricks</strong>.</li>
+</ol>
 <p>[05:15] <strong>Architecture Variations</strong></p>
-<p>A high-level overview of various LLMs (from 2017 to 2024) reveals:
--   <strong>Low consensus</strong> on many architectural choices, with the exception of pre-norm.
--   <strong>Trends towards 'LLaMA-like' architectures</strong> in recent years.</p>
+<p>A high-level overview of various LLMs (from 2017 to 2024) reveals:</p>
+<ul>
+<li><strong>Low consensus</strong> on many architectural choices, with the exception of pre-norm.</li>
+<li><strong>Trends towards 'LLaMA-like' architectures</strong> in recent years.</li>
+</ul>
 <p>[05:54] <strong>Pre-vs-Post Norm</strong></p>
 <p>The original Transformer used <strong>post-norm</strong>, where LayerNorm is applied <em>after</em> the residual connection.
 $$x_{l+1} = LayerNorm(x_l + MultiHeadAtt(x_l))$$
@@ -152,9 +166,11 @@ $$x_{l+1} = x_l + MultiHeadAtt(LayerNorm(x_l))$$
 $$x_{l+1} = x_l + FFN(LayerNorm(x_l))$$
 Almost all modern LMs use pre-norm, with OPT-350M being a notable exception.</p>
 <p>[07:13] <strong>Pre-vs-Post Norm, the Data</strong></p>
-<p>Early papers (e.g., Salazar and Nguyen 2019, Xiong 2020) demonstrated the benefits of pre-norm.
--   <strong>Pre-norm + Stability tricks</strong> (like ScaleNorm + FixNorm) allowed models to train without warm-up, achieving comparable or better performance than post-norm with careful warm-up.
--   This was observed across various tasks, including machine translation (Dev BLEU) and language modeling (Validation Loss on TWSLT and BERT).</p>
+<p>Early papers (e.g., Salazar and Nguyen 2019, Xiong 2020) demonstrated the benefits of pre-norm.</p>
+<ul>
+<li><strong>Pre-norm + Stability tricks</strong> (like ScaleNorm + FixNorm) allowed models to train without warm-up, achieving comparable or better performance than post-norm with careful warm-up.</li>
+<li>This was observed across various tasks, including machine translation (Dev BLEU) and language modeling (Validation Loss on TWSLT and BERT).</li>
+</ul>
 <p>[08:10] <strong>Pre-vs-Post Norm, Explanations?</strong></p>
 <ul>
 <li><strong>Gradient Attenuation (Xiong 2020)</strong>: Pre-norm helps maintain constant gradient sizes across layers, preventing them from exploding or vanishing. Post-norm, without warm-up, can lead to exploding gradients.</li>
@@ -162,11 +178,13 @@ Almost all modern LMs use pre-norm, with OPT-350M being a notable exception.</p>
 </ul>
 <p>Today, pre-norm and other LayerNorm tricks are primarily used as <strong>stability-inducing aids</strong> for training large neural networks, especially with larger learning rates.</p>
 <p>[09:14] <strong>New Things - 'Double Norm'</strong></p>
-<p>A recent innovation (not present in last year's lectures) is the "double norm" approach.
--   If putting LayerNorms <em>in</em> residual streams is bad, why not put them <em>outside</em> the stream?
--   Models like Grok and Gemma 2 apply LayerNorms both <em>before</em> and <em>after</em> the attention and FFN blocks (i.e., in front of the residual stream and after the main block output).
--   OLMo 2 uses LayerNorms <em>only after</em> the attention and FFN blocks (non-residual post-norm).
--   This approach is argued to be even more stable and easier to train for larger models.</p>
+<p>A recent innovation (not present in last year's lectures) is the "double norm" approach.</p>
+<ul>
+<li>If putting LayerNorms <em>in</em> residual streams is bad, why not put them <em>outside</em> the stream?</li>
+<li>Models like Grok and Gemma 2 apply LayerNorms both <em>before</em> and <em>after</em> the attention and FFN blocks (i.e., in front of the residual stream and after the main block output).</li>
+<li>OLMo 2 uses LayerNorms <em>only after</em> the attention and FFN blocks (non-residual post-norm).</li>
+<li>This approach is argued to be even more stable and easier to train for larger models.</li>
+</ul>
 <p>[11:59] <strong>LayerNorm vs RMSNorm</strong></p>
 <ul>
 <li><strong>Original Transformer: LayerNorm</strong> normalizes the mean and variance across the model dimension ($d_{model}$).
@@ -192,76 +210,122 @@ Almost all modern LMs use pre-norm, with OPT-350M being a notable exception.</p>
 </li>
 </ul>
 <p>[15:06] <strong>RMSNorm - Validation</strong></p>
-<p>Narang et al. (2020) showed that RMSNorm provides runtime improvements and, surprisingly, performance gains.
--   <strong>Vanilla Transformer</strong>: 3.50 steps/s, Final loss 1.838.
--   <strong>RMSNorm</strong>: 3.68 steps/s, Final loss 1.821.
--   This is a win-win: faster runtime and lower loss.</p>
+<p>Narang et al. (2020) showed that RMSNorm provides runtime improvements and, surprisingly, performance gains.</p>
+<ul>
+<li><strong>Vanilla Transformer</strong>: 3.50 steps/s, Final loss 1.838.</li>
+<li><strong>RMSNorm</strong>: 3.68 steps/s, Final loss 1.821.</li>
+<li>This is a win-win: faster runtime and lower loss.</li>
+</ul>
 <p>[15:58] <strong>More Generally: Dropping Bias Terms</strong></p>
-<p>Most modern Transformers do not have bias terms.
--   <strong>Original Transformer FFN</strong>: $FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2$.
--   <strong>Most Implementations FFN (if not gated)</strong>: $FFN(x) = \sigma(xW_1)W_2$.
--   <strong>Reasons</strong>: Similar to RMSNorm, it saves memory and improves optimization stability. Dropping bias terms has been empirically observed to stabilize training.</p>
-<p>[17:12] <strong>LayerNorm: Recap</strong>
--   <strong>Basically everyone does pre-norm.</strong>
-    -   <strong>Intuition</strong>: Keep the good parts of residual connections.
-    -   <strong>Observations</strong>: Nicer gradient propagation, fewer spikes.
-    -   <strong>Some people</strong> add a second norm outside the residual stream (not post-norm).
--   <strong>Most people do RMSNorm.</strong>
-    -   In practice, works as well as LayerNorm.
-    -   But, has fewer parameters to move around, which saves on wallclock time.
-    -   People more generally drop bias terms since the compute/param tradeoffs are not great.</p>
+<p>Most modern Transformers do not have bias terms.</p>
+<ul>
+<li><strong>Original Transformer FFN</strong>: $FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2$.</li>
+<li><strong>Most Implementations FFN (if not gated)</strong>: $FFN(x) = \sigma(xW_1)W_2$.</li>
+<li><strong>Reasons</strong>: Similar to RMSNorm, it saves memory and improves optimization stability. Dropping bias terms has been empirically observed to stabilize training.</li>
+</ul>
+<p>[17:12] <strong>LayerNorm: Recap</strong></p>
+<ul>
+<li><strong>Basically everyone does pre-norm.</strong><ul>
+<li><strong>Intuition</strong>: Keep the good parts of residual connections.</li>
+<li><strong>Observations</strong>: Nicer gradient propagation, fewer spikes.</li>
+<li><strong>Some people</strong> add a second norm outside the residual stream (not post-norm).</li>
+</ul>
+</li>
+<li><strong>Most people do RMSNorm.</strong><ul>
+<li>In practice, works as well as LayerNorm.</li>
+<li>But, has fewer parameters to move around, which saves on wallclock time.</li>
+<li>People more generally drop bias terms since the compute/param tradeoffs are not great.</li>
+</ul>
+</li>
+</ul>
 <p>[18:05] <strong>Activations</strong></p>
-<p>There's a "whole zoo" of activations: ReLU, GeLU, Swish, ELU, GLU, GeGLU, ReGLU, SeLU, SwiGLU, LiGLU.
--   It really does matter which activation function is chosen. SwiGLU and other GLU variants consistently work well.</p>
-<p>[20:07] <strong>A Few of the Common Activations</strong>
--   <strong>ReLU</strong>: $FFN(x) = \max(0, xW_1)W_2$.
-    -   Notable models: Original Transformer, T5, Gopher, Chinchilla, OPT.
--   <strong>GeLU</strong>: $FFN(x) = GeLU(xW_1)W_2 = x\Phi(x)W_2$.
-    -   Notable models: GPT-1/2/3, GPT-Neox, BLOOM.
--   <strong>SwiGLU / GeGLU</strong> (next slide).
-    -   Notable models: LLaMa 1/2/3, PaLM, Mistral, OLMo, most models post 2023.</p>
+<p>There's a "whole zoo" of activations: ReLU, GeLU, Swish, ELU, GLU, GeGLU, ReGLU, SeLU, SwiGLU, LiGLU.</p>
+<ul>
+<li>It really does matter which activation function is chosen. SwiGLU and other GLU variants consistently work well.</li>
+</ul>
+<p>[20:07] <strong>A Few of the Common Activations</strong></p>
+<ul>
+<li><strong>ReLU</strong>: $FFN(x) = \max(0, xW_1)W_2$.<ul>
+<li>Notable models: Original Transformer, T5, Gopher, Chinchilla, OPT.</li>
+</ul>
+</li>
+<li><strong>GeLU</strong>: $FFN(x) = GeLU(xW_1)W_2 = x\Phi(x)W_2$.<ul>
+<li>Notable models: GPT-1/2/3, GPT-Neox, BLOOM.</li>
+</ul>
+</li>
+<li><strong>SwiGLU / GeGLU</strong> (next slide).<ul>
+<li>Notable models: LLaMa 1/2/3, PaLM, Mistral, OLMo, most models post 2023.</li>
+</ul>
+</li>
+</ul>
 <p>[21:24] <strong>Gated Activations (*GLU)ivations</strong></p>
-<p>GLUs modify the "first part" of an FF layer.
--   <strong>Original FFN (with ReLU)</strong>: $FFN(x) = \max(0, xW_1)W_2$.
--   <strong>Instead of a linear + ReLU, augment the above with an (entrywise) linear term</strong>:
-    $$\max(0, xW_1) \rightarrow \max(0, xW_1) \otimes (xV)$$
--   <strong>This gives the gated variant (ReGLU)</strong>:
-    $$FFN_{ReGLU}(x) = (\max(0, xW_1) \otimes xV)W_2$$
-    -   Note that we have an extra parameter (V).</p>
-<p>[22:47] <strong>Gated Variants of Standard FF Layers</strong>
--   <strong>GeGLU</strong>: $FFN_{GeGLU}(x, W, V, W_2) = (GeLU(xW_1) \otimes xV)W_2$.
-    -   Notable models: T5 v1.1, mT5, LLaMDA, Phi3, Gemma 2, Gemma 3.
--   <strong>SwiGLU</strong>: $FFN_{SwiGLU}(x, W, V, W_2) = (Swish(xW_1) \otimes xV)W_2$.
-    -   Notable models: LLaMa 1/2/3, PaLM, Mistral, OLMo, most models post 2023.
--   <strong>Note</strong>: Gated models use smaller dimensions for the $d_{ff}$ by 2/3 to keep the total parameter count similar to non-gated counterparts.</p>
+<p>GLUs modify the "first part" of an FF layer.</p>
+<ul>
+<li><strong>Original FFN (with ReLU)</strong>: $FFN(x) = \max(0, xW_1)W_2$.</li>
+<li><strong>Instead of a linear + ReLU, augment the above with an (entrywise) linear term</strong>:
+    $$\max(0, xW_1) \rightarrow \max(0, xW_1) \otimes (xV)$$</li>
+<li><strong>This gives the gated variant (ReGLU)</strong>:
+    $$FFN_{ReGLU}(x) = (\max(0, xW_1) \otimes xV)W_2$$<ul>
+<li>Note that we have an extra parameter (V).</li>
+</ul>
+</li>
+</ul>
+<p>[22:47] <strong>Gated Variants of Standard FF Layers</strong></p>
+<ul>
+<li><strong>GeGLU</strong>: $FFN_{GeGLU}(x, W, V, W_2) = (GeLU(xW_1) \otimes xV)W_2$.<ul>
+<li>Notable models: T5 v1.1, mT5, LLaMDA, Phi3, Gemma 2, Gemma 3.</li>
+</ul>
+</li>
+<li><strong>SwiGLU</strong>: $FFN_{SwiGLU}(x, W, V, W_2) = (Swish(xW_1) \otimes xV)W_2$.<ul>
+<li>Notable models: LLaMa 1/2/3, PaLM, Mistral, OLMo, most models post 2023.</li>
+</ul>
+</li>
+<li><strong>Note</strong>: Gated models use smaller dimensions for the $d_{ff}$ by 2/3 to keep the total parameter count similar to non-gated counterparts.</li>
+</ul>
 <p>[25:49] <strong>Do Gated Linear Units Work?</strong></p>
-<p>Yes, fairly consistently so.
--   Shazeer (2020) showed that GLU variants consistently outperform ReLU on various tasks (e.g., CoLA, SST-2).
-    -   FFN$_{ReGLU}$ achieved the highest average score (84.67) and accuracy (94.38) among all tested FFN variants.
--   Narang et al. (2020) corroborated these findings, showing that GLU variants consistently achieve lower losses.</p>
-<p>[27:54] <strong>Gating, Activations</strong>
--   Many variations (ReLU, GeLU, GLU) across models.
--   GLU isn't <em>necessary</em> for a good model (see GPT3), but it's probably helpful.
-    -   Recent outlier models like Nemotron 340B (Squared ReLU) and Falcon 2 11B (ReLU) also achieve high performance.
--   But evidence points towards somewhat consistent gains from SwiGLU/GeGLU.</p>
+<p>Yes, fairly consistently so.</p>
+<ul>
+<li>Shazeer (2020) showed that GLU variants consistently outperform ReLU on various tasks (e.g., CoLA, SST-2).<ul>
+<li>FFN$_{ReGLU}$ achieved the highest average score (84.67) and accuracy (94.38) among all tested FFN variants.</li>
+</ul>
+</li>
+<li>Narang et al. (2020) corroborated these findings, showing that GLU variants consistently achieve lower losses.</li>
+</ul>
+<p>[27:54] <strong>Gating, Activations</strong></p>
+<ul>
+<li>Many variations (ReLU, GeLU, GLU) across models.</li>
+<li>GLU isn't <em>necessary</em> for a good model (see GPT3), but it's probably helpful.<ul>
+<li>Recent outlier models like Nemotron 340B (Squared ReLU) and Falcon 2 11B (ReLU) also achieve high performance.</li>
+</ul>
+</li>
+<li>But evidence points towards somewhat consistent gains from SwiGLU/GeGLU.</li>
+</ul>
 <p>[28:51] <strong>Serial vs Parallel Layers</strong></p>
-<p>Normal Transformer blocks are <strong>serial</strong>: they compute attention, then the MLP.
--   Input comes in, attention is computed, result is passed to MLP, MLP is computed, result is passed forward.
--   This serial nature can limit parallelism across GPUs.</p>
+<p>Normal Transformer blocks are <strong>serial</strong>: they compute attention, then the MLP.</p>
+<ul>
+<li>Input comes in, attention is computed, result is passed to MLP, MLP is computed, result is passed forward.</li>
+<li>This serial nature can limit parallelism across GPUs.</li>
+</ul>
 <p>[29:40] <strong>Parallel Layers</strong></p>
-<p>A few models (GPT-J, PaLM, GPT-NeoX) do parallel layers. Originally in GPT-J.
--   <strong>Parallel Layers</strong>: Instead of serial computation, attention and MLP are computed <em>in parallel</em> and then added to the residual stream.
-    -   Standard (serial) formulation: $y = x + MLP(LayerNorm(x)) + Attention(LayerNorm(x))$.
-    -   Parallel formulation: $y = x + MLP(LayerNorm(x)) + Attention(LayerNorm(x))$. (Note: The slide shows the same formula for both serial and parallel, but the key difference is that in parallel, MLP and Attention are computed from the <em>same</em> input $x$ and their outputs are summed <em>before</em> adding to $x$).
--   The parallel formulation can result in roughly 15% faster training speed at large scales, since the MLP and Attention input matrix multiplications can be fused.
--   If implemented right, LayerNorm can be shared, and matrix multiplies can be fused for systems efficiency.
--   <strong>Recent Models</strong>: Cohere Command A, Falcon 2 11B, Command R.
--   However, most models since then have reverted to serial layers, with only a few exceptions.</p>
-<p>[30:43] <strong>Summary: Architectures</strong>
--   <strong>Pre-vs-Post norm</strong>: Everyone does pre-norm (except OPT350M), likely with good reason.
--   <strong>Layer vs RMSNorm</strong>: RMSNorm has clear compute wins, sometimes even performance wins.
--   <strong>Gating</strong>: GLUs seem generally better, though differences are small.
--   <strong>Serial vs parallel layers</strong>: No extremely serious ablations, but has a compute win.</p>
+<p>A few models (GPT-J, PaLM, GPT-NeoX) do parallel layers. Originally in GPT-J.</p>
+<ul>
+<li><strong>Parallel Layers</strong>: Instead of serial computation, attention and MLP are computed <em>in parallel</em> and then added to the residual stream.<ul>
+<li>Standard (serial) formulation: $y = x + MLP(LayerNorm(x)) + Attention(LayerNorm(x))$.</li>
+<li>Parallel formulation: $y = x + MLP(LayerNorm(x)) + Attention(LayerNorm(x))$. (Note: The slide shows the same formula for both serial and parallel, but the key difference is that in parallel, MLP and Attention are computed from the <em>same</em> input $x$ and their outputs are summed <em>before</em> adding to $x$).</li>
+</ul>
+</li>
+<li>The parallel formulation can result in roughly 15% faster training speed at large scales, since the MLP and Attention input matrix multiplications can be fused.</li>
+<li>If implemented right, LayerNorm can be shared, and matrix multiplies can be fused for systems efficiency.</li>
+<li><strong>Recent Models</strong>: Cohere Command A, Falcon 2 11B, Command R.</li>
+<li>However, most models since then have reverted to serial layers, with only a few exceptions.</li>
+</ul>
+<p>[30:43] <strong>Summary: Architectures</strong></p>
+<ul>
+<li><strong>Pre-vs-Post norm</strong>: Everyone does pre-norm (except OPT350M), likely with good reason.</li>
+<li><strong>Layer vs RMSNorm</strong>: RMSNorm has clear compute wins, sometimes even performance wins.</li>
+<li><strong>Gating</strong>: GLUs seem generally better, though differences are small.</li>
+<li><strong>Serial vs parallel layers</strong>: No extremely serious ablations, but has a compute win.</li>
+</ul>
 <p>[32:34] <strong>Many Variations in Position Embeddings</strong></p>
 <ul>
 <li><strong>Sine embeddings</strong>: Add sines and cosines that enable localization.<ul>
@@ -341,12 +405,14 @@ Almost all modern LMs use pre-norm, with OPT-350M being a notable exception.</p>
 </ul>
 <hr />
 <p>[39:03] <strong>Hyperparameters</strong></p>
-<p>Transformer hyperparameter questions you might have had in 224n:
--   How much bigger should the feedforward size be compared to hidden size?
--   How many heads, and should num_heads always divide hidden size?
--   What should my vocab size be?
--   Do people even regularize these LMs?
--   How do people scale these models - very deep or very wide?</p>
+<p>Transformer hyperparameter questions you might have had in 224n:</p>
+<ul>
+<li>How much bigger should the feedforward size be compared to hidden size?</li>
+<li>How many heads, and should num_heads always divide hidden size?</li>
+<li>What should my vocab size be?</li>
+<li>Do people even regularize these LMs?</li>
+<li>How do people scale these models - very deep or very wide?</li>
+</ul>
 <p>[40:03] <strong>Surprising (?) Consensus Hyperparameter 1 - Feedforward</strong></p>
 <ul>
 <li><strong>Feedforward - model dimension ratio</strong>.<ul>
@@ -532,17 +598,21 @@ Almost all modern LMs use pre-norm, with OPT-350M being a notable exception.</p>
 <li>There's a complex interaction between the optimizer, weight decay, and implicit acceleration at the tail end of training that leads to better models.</li>
 <li>The purpose of weight decay in LLMs is to achieve <strong>better training losses</strong>, not primarily to regularize against overfitting.</li>
 </ul>
-<p>[53:00] <strong>Summary: Hyperparameters</strong>
--   <strong>Feedforward</strong>: Factor-of-4 rule of thumb (8/3 for GLUs) is standard (with some evidence).
--   <strong>Head dim</strong>: Head dim * Num head = D model is standard.
--   <strong>Aspect ratio</strong>: Wide range of 'good' values (100-200). Systems concerns dictate the value.
--   <strong>Regularization</strong>: You still 'regularize' LMs but its effects are primarily on optimization dynamics.</p>
+<p>[53:00] <strong>Summary: Hyperparameters</strong></p>
+<ul>
+<li><strong>Feedforward</strong>: Factor-of-4 rule of thumb (8/3 for GLUs) is standard (with some evidence).</li>
+<li><strong>Head dim</strong>: Head dim * Num head = D model is standard.</li>
+<li><strong>Aspect ratio</strong>: Wide range of 'good' values (100-200). Systems concerns dictate the value.</li>
+<li><strong>Regularization</strong>: You still 'regularize' LMs but its effects are primarily on optimization dynamics.</li>
+</ul>
 <hr />
 <p>[54:00] <strong>Stability Tricks</strong></p>
-<p>Recently, lots of attention on stable training.
--   As models get bigger and are trained longer, stability issues become more prominent.
--   A common problem is exploding gradients, which leads to unstable training and divergence.
--   The goal is to turn an unstable training curve (like the blue one with high gradient spikes) into a stable one (like the orange one with low gradient norms).</p>
+<p>Recently, lots of attention on stable training.</p>
+<ul>
+<li>As models get bigger and are trained longer, stability issues become more prominent.</li>
+<li>A common problem is exploding gradients, which leads to unstable training and divergence.</li>
+<li>The goal is to turn an unstable training curve (like the blue one with high gradient spikes) into a stable one (like the orange one with low gradient norms).</li>
+</ul>
 <p>[55:00] <strong>Where Do the Issues Arise? Beware of Softmaxes!</strong></p>
 <ul>
 <li>Softmaxes can be ill-behaved due to exponentials / division by zero.</li>
@@ -675,17 +745,21 @@ Almost all modern LMs use pre-norm, with OPT-350M being a notable exception.</p>
 <li><strong>Major differences</strong>: Position embeddings, tokenization.</li>
 </ul>
 <hr />
-<p><strong>Practical Takeaways</strong>
--   When building LLMs, prioritize pre-norm for stability.
--   RMSNorm is generally preferred over LayerNorm for efficiency without sacrificing performance.
--   GLU variants (GeGLU, SwiGLU) are the current state-of-the-art for FFN activations.
--   Follow established hyperparameter ratios (e.g., $d_{ff} = 4d_{model}$ or $8/3 d_{model}$ for GLUs, $d_{model} / (h \cdot d_h) \approx 1$).
--   Weight decay is crucial for optimizing LLMs, even if not for traditional overfitting control.
--   Implement stability tricks, especially for softmax operations (Z-loss, QK norm, logit soft-capping).
--   Consider MQA/GQA for inference efficiency and sparse attention patterns for longer context windows.</p>
-<p><strong>Open Questions / Things to Remember</strong>
--   The exact theoretical reasons for the superior stability of pre-norm and RMSNorm are still being actively researched, but empirical evidence is strong.
--   The interaction between weight decay and learning rate schedules is complex and crucial for optimal training.
--   The field is still evolving, with new architectural tweaks and stability tricks emerging regularly (e.g., double norm, interleaved attention patterns).
--   System-level considerations (memory movement, parallelism constraints) increasingly influence architectural choices.</p>
+<p><strong>Practical Takeaways</strong></p>
+<ul>
+<li>When building LLMs, prioritize pre-norm for stability.</li>
+<li>RMSNorm is generally preferred over LayerNorm for efficiency without sacrificing performance.</li>
+<li>GLU variants (GeGLU, SwiGLU) are the current state-of-the-art for FFN activations.</li>
+<li>Follow established hyperparameter ratios (e.g., $d_{ff} = 4d_{model}$ or $8/3 d_{model}$ for GLUs, $d_{model} / (h \cdot d_h) \approx 1$).</li>
+<li>Weight decay is crucial for optimizing LLMs, even if not for traditional overfitting control.</li>
+<li>Implement stability tricks, especially for softmax operations (Z-loss, QK norm, logit soft-capping).</li>
+<li>Consider MQA/GQA for inference efficiency and sparse attention patterns for longer context windows.</li>
+</ul>
+<p><strong>Open Questions / Things to Remember</strong></p>
+<ul>
+<li>The exact theoretical reasons for the superior stability of pre-norm and RMSNorm are still being actively researched, but empirical evidence is strong.</li>
+<li>The interaction between weight decay and learning rate schedules is complex and crucial for optimal training.</li>
+<li>The field is still evolving, with new architectural tweaks and stability tricks emerging regularly (e.g., double norm, interleaved attention patterns).</li>
+<li>System-level considerations (memory movement, parallelism constraints) increasingly influence architectural choices.</li>
+</ul>
 <hr /><div class="pager"><a href="lec02.html">← Lec 02</a><a href="lec04.html" style="text-align:right">Lec 04 →</a></div></main></div></body></html>

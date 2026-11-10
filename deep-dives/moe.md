@@ -74,6 +74,7 @@ The crucial part is that for any expert $j$ *not* in the Top-K set (i.e., $M_j=0
 This auxiliary loss is a clever heuristic that pushes the router away from imbalanced expert assignments. To understand how, we must derive its gradient with respect to the router's logits.
 
 First, let's define the terms for a batch of $T$ tokens and $N$ experts:
+
 - **$p_{i,t}$**: The softmax probability from the router for expert $i$ and token $t$.
 - **$P_i = \frac{1}{T} \sum_{t=1}^{T} p_{i,t}$**: The average router probability assigned to expert $i$ over the batch. This is the router's *intention* to use expert $i$.
 - **$c_{i,t} \in \{0, 1\}$**: An indicator that is 1 if expert $i$ was chosen for token $t$ (i.e., was in the Top-K), and 0 otherwise.
@@ -105,6 +106,7 @@ Let's find the gradient of $L_{aux}$ with respect to a single router logit $z_{k
 
 **Intuition:**
 The gradient on logit $z_{k,t}$ is proportional to $f_k - \mathbb{E}_{p_t}[f]$.
+
 - $\boldsymbol{f_k}$ is the actual utilization of expert $k$.
 - $\boldsymbol{\sum_{j=1}^{N} f_j p_{j,t}}$ is the expected utilization for this specific token, weighted by the router's current probabilities.
 
@@ -144,6 +146,7 @@ $$ \frac{\partial L_z}{\partial z_k} = 2\beta \cdot (\text{LSE}(z)) \cdot p_k $$
 
 **Intuition:**
 The gradient for logit $z_k$ is always positive (since LSE and $p_k$ are positive). During gradient descent, the optimizer will always push the logits **down**. The magnitude of this "push" is proportional to two things:
+
 1.  **$\text{LSE}(z)$**: The current magnitude of the (smooth) max logit. If the logits are already large, the push is stronger.
 2.  **$p_k$**: The router's confidence in expert $k$. The logit for the expert the router is already confident in gets pushed down the most.
 
@@ -158,6 +161,7 @@ This is a key insight behind modern MoE architectures like DeepSeek. The trick i
 Let's analyze this by comparing a dense FFN layer to a fine-grained MoE layer with the same FLOPs budget.
 
 **Definitions:**
+
 - $H$: Model hidden dimension.
 - $I$: Intermediate dimension of a standard FFN (e.g., $I = 4H$).
 - $T$: Number of tokens in a sequence.
@@ -165,11 +169,13 @@ Let's analyze this by comparing a dense FFN layer to a fine-grained MoE layer wi
 
 **1. Baseline: Dense FFN Layer**
 A standard FFN consists of an up-projection ($W_{up}: H \to I$) and a down-projection ($W_{down}: I \to H$).
+
 - **Parameters:** The total number of weights is $(H \times I) + (I \times H) = 2HI$.
 - **FLOPs:** For each token, we perform two matrix-vector multiplications. The total FLOPs are $T \times (2 \cdot H \cdot I + 2 \cdot I \cdot H) \approx 4THI$.
 
 **2. Fine-Grained MoE Layer (at constant FLOPs)**
 Now, we replace the dense FFN with an MoE layer. We want to keep the FLOPs the same as the dense baseline.
+
 - Let the MoE have $N_{fg}$ "fine-grained" experts.
 - Each expert has a smaller intermediate dimension, $I_{fg}$.
 - The router activates the Top-$K$ experts for each token.
@@ -191,6 +197,7 @@ For the same computational cost as a dense layer, an MoE layer has $\frac{N_{fg}
 
 **Concrete Example:**
 Let's design an MoE to replace a dense FFN where $H=4096$ and $I=4H=16384$.
+
 - **Dense FFN:**
   - FLOPs per token $\propto I = 16384$.
   - Parameters $\propto 2HI = 2 \cdot 4096 \cdot 16384 \approx 134M$.
