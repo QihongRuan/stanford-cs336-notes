@@ -47,6 +47,7 @@ This shift isn't inherently bad, as layers of abstraction boost productivity. Ho
 
 ### [3:59] The Industrialization of Language Models
 A significant challenge in building language models is their industrial scale:
+
 - **GPT-4**: Rumored to have 1.8 trillion parameters, costing \$100 million to train.
 - **xAI**: Building clusters with 200,000 H100 GPUs to train Grok.
 - **Stargate (OpenAI, Nvidia, Oracle)**: Supposedly a \$500 billion investment over 4 years.
@@ -67,6 +68,7 @@ Frontier models are often out of reach for individual researchers. The small lan
 
 ### [7:00] What Can We Learn That Transfers to Frontier Models?
 There are three types of knowledge:
+
 1.  **Mechanics**: How things work (e.g., what a Transformer is, how model parallelism leverages GPUs). This can be taught effectively.
 2.  **Mindset**: Squeezing the most out of hardware, taking scaling seriously (scaling laws). This is crucial, as the scaling mindset pioneered by OpenAI led to the current generation of AI models.
 3.  **Intuitions**: Which data and modeling decisions yield good accuracy. This can only be partially taught, as intuitions developed at small scales may not transfer to large scales.
@@ -134,6 +136,7 @@ Accuracy is a product of efficiency and resources ($accuracy = efficiency \times
 
 ## [18:04] What is this program?
 The lecture itself is an executable program, allowing for:
+
 - Viewing and running code (since everything is code).
 - Stepping through code and inspecting variables.
 - Seeing the hierarchical structure of the lecture.
@@ -195,6 +198,7 @@ def what_is_this_program():
 
 ### [27:14] Design Decisions
 The course is organized into five units, each focusing on a set of design decisions:
+
 1.  **Basics**: Tokenization, architecture, loss function, optimizer, learning rate.
 2.  **Systems**: Kernels, parallelism, quantization, activation checkpointing, CPU offloading, inference.
 3.  **Scaling Laws**: Scaling sequence, model complexity, loss metric, parametric form.

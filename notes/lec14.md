@@ -1,6 +1,7 @@
 ## Lecture 14: Data 2
 
 **TL;DR:**
+
 *   Data preparation for large language models involves filtering and deduplication.
 *   Filtering algorithms aim to select high-quality data similar to a target distribution from a vast raw corpus.
 *   Common filtering techniques include n-gram language models (KenLM), fastText classifiers, and importance resampling (DSIR).
@@ -8,6 +9,7 @@
 *   Hashing is a fundamental tool for both exact deduplication (e.g., Bloom filters) and approximate deduplication (e.g., MinHash, LSH).
 
 **Key Concepts:**
+
 *   **Data Filtering Pipeline:** Live service -> dump/crawl -> processed data (HTML to text, filtering, deduplication).
 *   **Filtering Goal:** Given target data $T$ (small, high-quality) and raw data $R$ (large), find subset $T'$ of $R$ similar to $T$.
 *   **Filtering Desiderata:** Generalize from $T$ (want $T'$ to be different from $T$), extremely fast (to run on $R$).
@@ -62,6 +64,7 @@
 This lecture builds upon the previous one, which provided an overview of datasets used for training language models. We discussed the journey of data from live services (like GitHub) to processed datasets (like The Stack), involving steps like HTML to text conversion, quality/toxicity filtering, and deduplication.
 
 Today, we will take a deep dive into the mechanics of these processing steps, focusing on:
+
 *   Algorithms for filtering (e.g., classifiers).
 *   Applications of filtering (e.g., language, quality, toxicity).
 *   Deduplication (e.g., Bloom filters, MinHash, LSH).
@@ -80,10 +83,12 @@ The fundamental algorithmic building block for filtering is:
 </p>
 
 **Desiderata for a filtering algorithm:**
+
 *   **Generalize from the target data:** We want $T'$ to be different from $T$. If $T'$ is identical to $T$, there's no point in filtering.
 *   **Extremely fast:** It must be able to run on $R$, which is massive (e.g., the entire web). If filtering is as expensive as training a large language model, it defeats the purpose.
 
 We will explore three different ways to implement this filtering primitive:
+
 1.  Training an n-gram model (using KenLM).
 2.  Training a classifier (using FastText).
 3.  Using importance resampling (DSIR).
@@ -91,6 +96,7 @@ We will explore three different ways to implement this filtering primitive:
 ### [2:45] 1.1. N-gram Models with Kneser-Ney Smoothing (KenLM)
 
 N-gram models are a classic approach in natural language processing.
+
 *   **Kneser-Ney smoothing:** A technique used to estimate probabilities of n-grams, especially for unseen n-grams. It's a common choice in statistical NLP.
 *   **KenLM:** A fast, open-source implementation of n-gram language models, originally developed for machine translation.
 *   **Commonly used for data filtering:** It's simple, fast, and effective.
@@ -160,6 +166,7 @@ Surprisingly, the perplexity for "the the the..." is quite low (62). This highli
 
 **CCNet [Wenzek+ 2019]**
 The CCNET paper, which we discussed previously, used a similar approach for data filtering.
+
 *   **Items are paragraphs of text.**
 *   **Sort paragraphs by increasing perplexity.**
 *   **Keep the top 1/3.**
@@ -170,12 +177,14 @@ The CCNET paper, which we discussed previously, used a similar approach for data
 ### [8:39] 1.2. FastText Classifiers
 
 FastText [Joulin+ 2016] is another popular approach, especially for its efficiency.
+
 *   **Task:** Text classification (e.g., sentiment classification).
 *   **Goal:** Train a fast classifier for text classification.
 *   **Finding:** It was as good as much slower neural network classifiers.
 
 **Baseline: Bag of Words (not what they did)**
 Consider a simple bag-of-words model for text classification.
+
 *   $L = 32$ (Length of input)
 *   $V = 8192$ (Vocabulary size)
 *   $K = 64$ (Number of classes)
@@ -189,6 +198,7 @@ The problem is that $V \times K$ parameters can be huge, leading to sparsity iss
 
 **FastText Classifier: Bag of Word Embeddings**
 FastText addresses this by introducing a hidden dimension $H$.
+
 *   $H = 16$ (Hidden dimension, much smaller than $K$)
 *   `U = nn.Embedding(V, H)` (Embedding parameters $V \times H$)
 *   `W = nn.Linear(H, K)` (Head parameters $H \times K$)
@@ -197,11 +207,13 @@ Notice that there's no non-linearity between the embedding and the linear layer;
 The number of parameters is greatly reduced: only $H \times (V + K)$ parameters.
 
 **Implementation:**
+
 *   Parallelized, asynchronous SGD.
 *   Learning rate: linear interpolation from some number to 0.
 
 **Bag of N-grams:**
 FastText extends this concept to n-grams.
+
 *   Problem: The number of n-grams (e.g., bigrams) can get very large and is unbounded.
 *   **Solution: Hashing trick.**
     *   Define a fixed number of bins (e.g., 10 million bins in practice, 8 in this example).
@@ -210,6 +222,7 @@ FastText extends this concept to n-grams.
     *   Of course, collisions can occur, but the model learns to account for them during optimization.
 
 **Application to Filtering:**
+
 *   For quality filtering, we often have $K=2$ classes (good vs. bad).
 *   In that case, FastText is just a linear classifier ($H=K=2$).
 *   **In general, you can use any classifier** (e.g., BERT, LLaMA); it's just slower. The trade-off is that if you use a very powerful model for filtering, you might be better off using that compute for training your actual language model. Filtering a huge raw dataset means even a small increase in inference cost per item can lead to massive overall compute.
@@ -217,12 +230,14 @@ FastText extends this concept to n-grams.
 ### [1:04:55] 1.3. Data Selection for Language Models via Importance Resampling (DSIR)
 
 DSIR [Xie+ 2023] offers a more principled approach to data selection.
+
 *   **Basic Idea:**
     1.  Estimate importance weights using raw + target data (e.g., simple bag-of-n-grams estimator).
     2.  Select data via importance resampling.
 
 Let's quickly review importance resampling:
 **Setup:**
+
 *   **Target distribution $p$:** We want to sample from here.
 *   **Proposal distribution $q$:** We have samples from here.
 *   **Example:**
@@ -231,6 +246,7 @@ Let's quickly review importance resampling:
     *   `q = [0.4, 0.3, 0.2, 0.1]` (Proposal distribution)
 
 **Steps:**
+
 1.  **Sample from $q$:** Draw $N$ samples (e.g., $N=100$) from the proposal distribution $q$.
     ```python
     samples = np.random.choice(vocabulary, p=q, size=n)

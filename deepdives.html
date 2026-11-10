@@ -82,10 +82,12 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 
 </head><body><div class="layout"><nav class="sidebar"><h2>CS336 Lectures</h2><a href="index.html">Home</a><a href="deepdives.html" class="active">🧠 Algorithm Deep Dives</a><a href="assignments.html">🛠️ Assignments — Do the Work</a><a href="lec01.html"><span class="num">01</span>Overview and Tokenization</a><a href="lec02.html"><span class="num">02</span>PyTorch, Resource Accounting</a><a href="lec03.html"><span class="num">03</span>Architectures, Hyperparameters</a><a href="lec04.html"><span class="num">04</span>Mixture of Experts</a><a href="lec05.html"><span class="num">05</span>GPUs</a><a href="lec06.html"><span class="num">06</span>Kernels, Triton</a><a href="lec07.html"><span class="num">07</span>Parallelism 1</a><a href="lec08.html"><span class="num">08</span>Parallelism 2</a><a href="lec09.html"><span class="num">09</span>Scaling Laws 1</a><a href="lec10.html"><span class="num">10</span>Inference</a><a href="lec11.html"><span class="num">11</span>Scaling Laws 2</a><a href="lec12.html"><span class="num">12</span>Evaluation</a><a href="lec13.html"><span class="num">13</span>Data 1</a><a href="lec14.html"><span class="num">14</span>Data 2</a><a href="lec15.html"><span class="num">15</span>Alignment — SFT/RLHF</a><a href="lec16.html"><span class="num">16</span>Alignment — RL 1</a><a href="lec17.html"><span class="num">17</span>Alignment — RL 2</a><a href="https://github.com/QihongRuan/stanford-cs336-notes" target="_blank" rel="noopener" class="ghside">⭐ Star on GitHub</a></nav><main class="content"><div class="crumbs"><a href="../">Qihong Ruan</a> / <a href="index.html">CS336 Notes</a> / Algorithm Deep Dives</div><h1>🧠 Algorithm Deep Dives</h1><p class="meta">Going beyond the lectures — the genuinely tricky algorithmic questions, worked through with derivations, intuition, and the pitfalls that trip people up.</p><div class="banner">Screenshots show <em>what</em> the slides said; this section is about <em>why</em> the algorithms work. Each entry poses a sharp question and answers it in depth.</div><div class="ddtoc"><strong>Jump to:</strong> <a href="#tokenization">Tokenization &amp; Byte-Pair Encoding</a> · <a href="#architecture">Transformer Architecture Choices</a> · <a href="#moe">Mixture of Experts</a> · <a href="#kernels">GPU Kernels &amp; FlashAttention</a> · <a href="#parallelism">Parallelism</a> · <a href="#scaling">Scaling Laws &amp; compute-optimal training</a> · <a href="#inference">Inference</a> · <a href="#alignment">Alignment math</a></div><section id="tokenization" class="ddsec"><h2>Tokenization &amp; Byte-Pair Encoding</h2><h3 id="q-a-naive-implementation-of-bpe-training-involves-repeatedly-scanning-the-entire-corpus-to-find-the-most-frequent-pair-which-has-a-terrible-time-complexity-of-roughly-$O(\text{CorpusSize} \times \text{NumMerges})$-how-is-bpe-training-implemented-efficiently-in-practice">Q: A naive implementation of BPE training involves repeatedly scanning the entire corpus to find the most frequent pair, which has a terrible time complexity of roughly $O(\text{CorpusSize} \times \text{NumMerges})$. How is BPE training implemented efficiently in practice?</h3>
 <p>A thorough and efficient implementation of the BPE training algorithm is critical for handling large corpora. The naive approach is computationally infeasible. The key to an efficient implementation lies in using appropriate data structures to avoid re-scanning the corpus for every single merge.</p>
-<p>The core operations in each step of the training loop are:
-1.  Find the most frequent adjacent pair of tokens.
-2.  Merge this pair into a new token.
-3.  Update the corpus and pair counts for the next iteration.</p>
+<p>The core operations in each step of the training loop are:</p>
+<ol>
+<li>Find the most frequent adjacent pair of tokens.</li>
+<li>Merge this pair into a new token.</li>
+<li>Update the corpus and pair counts for the next iteration.</li>
+</ol>
 <p>An efficient algorithm optimizes these steps as follows:</p>
 <p><strong>1. Initial Corpus Representation and Pair Counting</strong></p>
 <p>Instead of treating the corpus as a monolithic flat array of bytes, we first process it into a more structured format. A common approach is to split the text into "words" (e.g., by whitespace) and represent each word as a sequence of tokens. This is not strictly necessary for the algorithm's efficiency but aligns with common practice (like in GPT-2).</p>
@@ -104,10 +106,12 @@ def get_initial_pair_counts(corpus_words):
 <p><strong>2. Efficiently Finding the Best Pair</strong></p>
 <p>With the <code>pair_counts</code> map, finding the most frequent pair is a simple iteration over the map's values. We don't need a priority queue for this, as we can just find the max in each step.</p>
 <p><strong>3. Efficiently Updating Counts After a Merge</strong></p>
-<p>This is the most complex part. When we merge a pair, say <code>(A, B)</code> into a new token <code>Z</code>, we cannot afford to rescan the corpus to update counts. The merge only affects the local context. Consider a sequence <code>... X, A, B, Y ...</code>.
-- The pair <code>(A, B)</code> is eliminated.
-- The pairs <code>(X, A)</code> and <code>(B, Y)</code> are destroyed.
-- New pairs <code>(X, Z)</code> and <code>(Z, Y)</code> are created.</p>
+<p>This is the most complex part. When we merge a pair, say <code>(A, B)</code> into a new token <code>Z</code>, we cannot afford to rescan the corpus to update counts. The merge only affects the local context. Consider a sequence <code>... X, A, B, Y ...</code>.</p>
+<ul>
+<li>The pair <code>(A, B)</code> is eliminated.</li>
+<li>The pairs <code>(X, A)</code> and <code>(B, Y)</code> are destroyed.</li>
+<li>New pairs <code>(X, Z)</code> and <code>(Z, Y)</code> are created.</li>
+</ul>
 <p>To perform this update efficiently, we need to know where all occurrences of <code>(A, B)</code> are. A naive search is too slow. The efficient solution is to maintain an <strong>inverted index</strong>: a map from each pair to a list of locations (e.g., word index and position within the word) where it occurs.</p>
 <p>However, maintaining a full inverted index is complex. A more practical and widely used approach (e.g., in <code>huggingface/tokenizers</code>) is to represent each word as a <strong>doubly linked list</strong> of tokens. This allows for $O(1)$ modification of the sequence during a merge.</p>
 <p>The refined algorithm looks like this:</p>
@@ -120,19 +124,45 @@ def get_initial_pair_counts(corpus_words):
 </ul>
 </li>
 <li>
-<p><strong>Merge Loop:</strong> For <code>i</code> from 1 to <code>num_merges</code>:
-    a. <strong>Find Best Pair:</strong> Find the pair <code>(A, B)</code> with the highest count in <code>pair_counts</code>.
-    b. <strong>Update Corpus and Counts:</strong> Iterate through each word in the corpus. Within each word (linked list), iterate through its nodes.
-        - If a node and its successor form the pair <code>(A, B)</code>:
-            i. Let the preceding node be <code>X</code> and the succeeding node be <code>Y</code>.
-            ii. <strong>Decrement old counts:</strong>
-               - <code>pair_counts[(X.value, A)] -= 1</code>
-               - <code>pair_counts[(B, Y.value)] -= 1</code>
-            iii. <strong>Merge in the linked list:</strong> Change the current node's value to the new token <code>Z</code> and delete the next node (which held <code>B</code>). This is an $O(1)$ pointer operation.
-            iv. <strong>Increment new counts:</strong>
-               - <code>pair_counts[(X.value, Z)] += 1</code>
-               - <code>pair_counts[(Z, Y.value)] += 1</code>
-    c. <strong>Store Merge:</strong> Add the merge rule <code>(A, B) -&gt; Z</code> to our list of learned merges.</p>
+<p><strong>Merge Loop:</strong> For <code>i</code> from 1 to <code>num_merges</code>:</p>
+<ol>
+<li>
+<p><strong>Find Best Pair:</strong> Find the pair <code>(A, B)</code> with the highest count in <code>pair_counts</code>.</p>
+</li>
+<li>
+<p><strong>Update Corpus and Counts:</strong> Iterate through each word in the corpus. Within each word (linked list), iterate through its nodes.</p>
+<ul>
+<li>
+<p>If a node and its successor form the pair <code>(A, B)</code>:</p>
+<ol>
+<li>
+<p>Let the preceding node be <code>X</code> and the succeeding node be <code>Y</code>.</p>
+</li>
+<li>
+<p><strong>Decrement old counts:</strong></p>
+<ul>
+<li><code>pair_counts[(X.value, A)] -= 1</code></li>
+<li><code>pair_counts[(B, Y.value)] -= 1</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Merge in the linked list:</strong> Change the current node's value to the new token <code>Z</code> and delete the next node (which held <code>B</code>). This is an $O(1)$ pointer operation.</p>
+</li>
+<li>
+<p><strong>Increment new counts:</strong></p>
+<ul>
+<li><code>pair_counts[(X.value, Z)] += 1</code></li>
+<li><code>pair_counts[(Z, Y.value)] += 1</code></li>
+</ul>
+</li>
+</ol>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Store Merge:</strong> Add the merge rule <code>(A, B) -&gt; Z</code> to our list of learned merges.</p>
+</li>
+</ol>
 </li>
 </ol>
 <p><strong>Complexity Analysis:</strong></p>
@@ -157,12 +187,14 @@ def get_initial_pair_counts(corpus_words):
 <p><strong>Iterative Merging:</strong> Repeatedly scan the <em>current</em> token sequence and perform the <em>single best possible merge</em>. The "best" merge is defined as the one whose pair has the <strong>lowest rank</strong> (i.e., was learned earliest during training). If there's a tie in rank (which shouldn't happen with a proper merge list) or multiple occurrences of the same highest-priority pair, the <strong>leftmost occurrence</strong> is chosen.</p>
 </li>
 </ol>
-<p>Let's trace the example. Assume our training process learned the following merges in order:
--   ...
--   Merge #50: <code>(97, 98)</code> -&gt; <code>256</code> (representing <code>'ab'</code>)
--   ...
--   Merge #100: <code>(98, 99)</code> -&gt; <code>257</code> (representing <code>'bc'</code>)
--   ...</p>
+<p>Let's trace the example. Assume our training process learned the following merges in order:</p>
+<ul>
+<li>...</li>
+<li>Merge #50: <code>(97, 98)</code> -&gt; <code>256</code> (representing <code>'ab'</code>)</li>
+<li>...</li>
+<li>Merge #100: <code>(98, 99)</code> -&gt; <code>257</code> (representing <code>'bc'</code>)</li>
+<li>...</li>
+</ul>
 <p>Here, the pair <code>(97, 98)</code> has a lower rank (50) than <code>(98, 99)</code> (100).</p>
 <p><strong>Encoding <code>'abc'</code>:</strong></p>
 <ul>
@@ -240,14 +272,18 @@ def encode_bpe(text, merge_ranks):
 <p><strong>Algorithmic and Practical Consequences:</strong></p>
 <p>This design has profound consequences, creating both benefits and drawbacks.</p>
 <p><strong>1. Pro: A "Cleaner," More Interpretable Vocabulary</strong>
-The resulting vocabulary is more intuitive. It consists of:
--   Complete common words (e.g., <code>" the"</code>, <code>" and"</code>, <code>" in"</code>).
--   Common sub-words and morphemes (e.g., <code>"ing"</code>, <code>"ation"</code>, <code>" pre"</code>).
-This arguably creates a better inductive bias for the language model, as the tokens it operates on correspond more closely to semantic building blocks.</p>
+The resulting vocabulary is more intuitive. It consists of:</p>
+<ul>
+<li>Complete common words (e.g., <code>" the"</code>, <code>" and"</code>, <code>" in"</code>).</li>
+<li>Common sub-words and morphemes (e.g., <code>"ing"</code>, <code>"ation"</code>, <code>" pre"</code>).
+This arguably creates a better inductive bias for the language model, as the tokens it operates on correspond more closely to semantic building blocks.</li>
+</ul>
 <p><strong>2. Con: The "Leading Space" Problem</strong>
-This is the most significant drawback. Because pre-tokenization splits on whitespace, a word at the beginning of a sentence is treated as a different initial chunk from the same word in the middle of a sentence.
--   <code>"Tokenization is tricky."</code> -&gt; <code>["Tokenization", " is", " tricky", "."]</code>
--   <code>" is"</code> and <code>"is"</code> are different strings and will be processed independently by BPE.</p>
+This is the most significant drawback. Because pre-tokenization splits on whitespace, a word at the beginning of a sentence is treated as a different initial chunk from the same word in the middle of a sentence.</p>
+<ul>
+<li><code>"Tokenization is tricky."</code> -&gt; <code>["Tokenization", " is", " tricky", "."]</code></li>
+<li><code>" is"</code> and <code>"is"</code> are different strings and will be processed independently by BPE.</li>
+</ul>
 <p>This means <code>" world"</code> and <code>"world"</code> will likely have different token IDs, effectively doubling the vocabulary required for many words. This is inefficient and can be a source of subtle bugs when manipulating text for a model. For example, <code>model.generate("Hello" + " world")</code> might produce a different result from <code>model.generate("Hello world")</code>.</p>
 <p><strong>3. Con: Dependence on Heuristic Regex</strong>
 The entire tokenization process becomes dependent on the specific regular expression used for the initial split. The GPT-2 regex is famously complex:</p>
@@ -453,15 +489,17 @@ $$ \text{Params}_{\text{SwiGLU}} = (d_{model} \cdot d_{ff}') + (d_{model} \cdot 
 </ul>
 <h3 id="q-can-you-provide-a-detailed-analysis-of-the-kv-cache-size-and-memory-bandwidth-requirements-for-mha-mqa-and-gqa-during-autoregressive-decoding">Q: Can you provide a detailed analysis of the KV cache size and memory bandwidth requirements for MHA, MQA, and GQA during autoregressive decoding?</h3>
 <p>Yes, this analysis is crucial for understanding why MQA and GQA are so important for efficient inference, especially with long contexts.</p>
-<p><strong>Setup:</strong>
-*   $B$: Batch size
-*   $L$: Number of layers
-*   $N$: Current sequence length (context length)
-*   $d$: Model dimension
-*   $h$: Number of query heads
-*   $d_k$: Dimension of key/value vectors per head (typically $d_k = d/h$)
-*   $g$: Number of key/value groups in GQA ($1 \le g \le h$)
-*   <code>sizeof(fp16)</code>: 2 bytes (a common data type for the cache)</p>
+<p><strong>Setup:</strong></p>
+<ul>
+<li>$B$: Batch size</li>
+<li>$L$: Number of layers</li>
+<li>$N$: Current sequence length (context length)</li>
+<li>$d$: Model dimension</li>
+<li>$h$: Number of query heads</li>
+<li>$d_k$: Dimension of key/value vectors per head (typically $d_k = d/h$)</li>
+<li>$g$: Number of key/value groups in GQA ($1 \le g \le h$)</li>
+<li><code>sizeof(fp16)</code>: 2 bytes (a common data type for the cache)</li>
+</ul>
 <p>The KV cache stores the key and value vectors for all $N$ tokens in the context, for every layer. When generating the $(N+1)$-th token, the model's query for this new token must attend to all $N$ keys and values stored in the cache.</p>
 <p><strong>1. Multi-Head Attention (MHA)</strong>
 In MHA, every query head has its own unique key and value head. So, $g=h$.</p>
@@ -580,11 +618,13 @@ def forward_moe_layer(x, experts, router_weights, K):
 <hr />
 <h3 id="q-how-does-the-switch-transformers-load-balancing-loss-$L_{aux} = \alpha \sum_{i=1}^{N} f_i P_i$-mathematically-encourage-experts-to-be-used-more-evenly">Q: How does the Switch Transformer's load balancing loss, $L_{aux} = \alpha \sum_{i=1}^{N} f_i P_i$, mathematically encourage experts to be used more evenly?</h3>
 <p>This auxiliary loss is a clever heuristic that pushes the router away from imbalanced expert assignments. To understand how, we must derive its gradient with respect to the router's logits.</p>
-<p>First, let's define the terms for a batch of $T$ tokens and $N$ experts:
-- <strong>$p_{i,t}$</strong>: The softmax probability from the router for expert $i$ and token $t$.
-- <strong>$P_i = \frac{1}{T} \sum_{t=1}^{T} p_{i,t}$</strong>: The average router probability assigned to expert $i$ over the batch. This is the router's <em>intention</em> to use expert $i$.
-- <strong>$c_{i,t} \in \{0, 1\}$</strong>: An indicator that is 1 if expert $i$ was chosen for token $t$ (i.e., was in the Top-K), and 0 otherwise.
-- <strong>$f_i = \frac{1}{T} \sum_{t=1}^{T} c_{i,t}$</strong>: The fraction of tokens in the batch that were <em>actually dispatched</em> to expert $i$. This is the expert's <em>utilization</em>.</p>
+<p>First, let's define the terms for a batch of $T$ tokens and $N$ experts:</p>
+<ul>
+<li><strong>$p_{i,t}$</strong>: The softmax probability from the router for expert $i$ and token $t$.</li>
+<li><strong>$P_i = \frac{1}{T} \sum_{t=1}^{T} p_{i,t}$</strong>: The average router probability assigned to expert $i$ over the batch. This is the router's <em>intention</em> to use expert $i$.</li>
+<li><strong>$c_{i,t} \in \{0, 1\}$</strong>: An indicator that is 1 if expert $i$ was chosen for token $t$ (i.e., was in the Top-K), and 0 otherwise.</li>
+<li><strong>$f_i = \frac{1}{T} \sum_{t=1}^{T} c_{i,t}$</strong>: The fraction of tokens in the batch that were <em>actually dispatched</em> to expert $i$. This is the expert's <em>utilization</em>.</li>
+</ul>
 <p>The auxiliary loss is:
 $$ L_{aux} = \alpha \cdot N \cdot \sum_{i=1}^{N} f_i P_i $$
 <em>(Note: The original paper includes a factor of N for scaling, so we'll include it here.)</em></p>
@@ -613,9 +653,11 @@ $$ L_{aux} = \alpha \cdot N \cdot \sum_{i=1}^{N} f_i P_i $$
 </li>
 </ol>
 <p><strong>Intuition:</strong>
-The gradient on logit $z_{k,t}$ is proportional to $f_k - \mathbb{E}_{p_t}[f]$.
-- $\boldsymbol{f_k}$ is the actual utilization of expert $k$.
-- $\boldsymbol{\sum_{j=1}^{N} f_j p_{j,t}}$ is the expected utilization for this specific token, weighted by the router's current probabilities.</p>
+The gradient on logit $z_{k,t}$ is proportional to $f_k - \mathbb{E}_{p_t}[f]$.</p>
+<ul>
+<li>$\boldsymbol{f_k}$ is the actual utilization of expert $k$.</li>
+<li>$\boldsymbol{\sum_{j=1}^{N} f_j p_{j,t}}$ is the expected utilization for this specific token, weighted by the router's current probabilities.</li>
+</ul>
 <p>If expert $k$ is over-utilized ($f_k$ is high), then $f_k > \mathbb{E}_{p_t}[f]$, making the gradient positive. During gradient <em>descent</em>, the optimizer will push the logit $z_{k,t}$ <strong>down</strong>. This makes the router less likely to assign high probability to the over-utilized expert $k$ for this token in the future.</p>
 <p>Conversely, if an expert is under-utilized ($f_k$ is low), the gradient term becomes negative, and the optimizer pushes its logit $z_{k,t}$ <strong>up</strong>, encouraging the router to use it more. This simple, elegant mechanism nudges the router towards a state where all $f_i$ are roughly equal, ensuring all experts are trained.</p>
 <hr />
@@ -645,30 +687,40 @@ $$ \frac{\partial L_z}{\partial z_k} = \beta \cdot 2(\log S) \cdot \frac{1}{S} \
 Recognizing the final term as the softmax probability $p_k$, we get:
 $$ \frac{\partial L_z}{\partial z_k} = 2\beta \cdot (\text{LSE}(z)) \cdot p_k $$</p>
 <p><strong>Intuition:</strong>
-The gradient for logit $z_k$ is always positive (since LSE and $p_k$ are positive). During gradient descent, the optimizer will always push the logits <strong>down</strong>. The magnitude of this "push" is proportional to two things:
-1.  <strong>$\text{LSE}(z)$</strong>: The current magnitude of the (smooth) max logit. If the logits are already large, the push is stronger.
-2.  <strong>$p_k$</strong>: The router's confidence in expert $k$. The logit for the expert the router is already confident in gets pushed down the most.</p>
+The gradient for logit $z_k$ is always positive (since LSE and $p_k$ are positive). During gradient descent, the optimizer will always push the logits <strong>down</strong>. The magnitude of this "push" is proportional to two things:</p>
+<ol>
+<li><strong>$\text{LSE}(z)$</strong>: The current magnitude of the (smooth) max logit. If the logits are already large, the push is stronger.</li>
+<li><strong>$p_k$</strong>: The router's confidence in expert $k$. The logit for the expert the router is already confident in gets pushed down the most.</li>
+</ol>
 <p>This acts as a gentle regularizer, preventing any logit from growing without bound and keeping the router's internal values within a safe numerical range, thus ensuring stable training. It's a simple but highly effective trick for taming MoE models.</p>
 <hr />
 <h3 id="q-how-do-fine-grained-experts-increase-the-parameter-count-for-the-same-computational-cost-flops-a-quantitative-analysis-seems-in-order">Q: How do "fine-grained experts" increase the parameter count for the same computational cost (FLOPs)? A quantitative analysis seems in order.</h3>
 <p>This is a key insight behind modern MoE architectures like DeepSeek. The trick is to trade the <em>size</em> of each expert for the <em>number</em> of experts, which allows for a dramatic increase in the total parameter count while keeping the number of <em>activated</em> parameters (and thus FLOPs) constant.</p>
 <p>Let's analyze this by comparing a dense FFN layer to a fine-grained MoE layer with the same FLOPs budget.</p>
-<p><strong>Definitions:</strong>
-- $H$: Model hidden dimension.
-- $I$: Intermediate dimension of a standard FFN (e.g., $I = 4H$).
-- $T$: Number of tokens in a sequence.
-- FLOPs are approximated as $2 \times \text{MACs}$ (Multiply-Accumulate operations).</p>
-<p><strong>1. Baseline: Dense FFN Layer</strong>
-A standard FFN consists of an up-projection ($W_{up}: H \to I$) and a down-projection ($W_{down}: I \to H$).
-- <strong>Parameters:</strong> The total number of weights is $(H \times I) + (I \times H) = 2HI$.
-- <strong>FLOPs:</strong> For each token, we perform two matrix-vector multiplications. The total FLOPs are $T \times (2 \cdot H \cdot I + 2 \cdot I \cdot H) \approx 4THI$.</p>
-<p><strong>2. Fine-Grained MoE Layer (at constant FLOPs)</strong>
-Now, we replace the dense FFN with an MoE layer. We want to keep the FLOPs the same as the dense baseline.
-- Let the MoE have $N_{fg}$ "fine-grained" experts.
-- Each expert has a smaller intermediate dimension, $I_{fg}$.
-- The router activates the Top-$K$ experts for each token.</p>
+<p><strong>Definitions:</strong></p>
 <ul>
-<li><strong>FLOPs:</strong> The computation for one token involves $K$ experts. The FLOPs per token are $K \times (2HI_{fg} + 2HI_{fg}) = 4KHI_{fg}$. The total FLOPs are $T \times 4KHI_{fg}$.</li>
+<li>$H$: Model hidden dimension.</li>
+<li>$I$: Intermediate dimension of a standard FFN (e.g., $I = 4H$).</li>
+<li>$T$: Number of tokens in a sequence.</li>
+<li>FLOPs are approximated as $2 \times \text{MACs}$ (Multiply-Accumulate operations).</li>
+</ul>
+<p><strong>1. Baseline: Dense FFN Layer</strong>
+A standard FFN consists of an up-projection ($W_{up}: H \to I$) and a down-projection ($W_{down}: I \to H$).</p>
+<ul>
+<li><strong>Parameters:</strong> The total number of weights is $(H \times I) + (I \times H) = 2HI$.</li>
+<li><strong>FLOPs:</strong> For each token, we perform two matrix-vector multiplications. The total FLOPs are $T \times (2 \cdot H \cdot I + 2 \cdot I \cdot H) \approx 4THI$.</li>
+</ul>
+<p><strong>2. Fine-Grained MoE Layer (at constant FLOPs)</strong>
+Now, we replace the dense FFN with an MoE layer. We want to keep the FLOPs the same as the dense baseline.</p>
+<ul>
+<li>Let the MoE have $N_{fg}$ "fine-grained" experts.</li>
+<li>Each expert has a smaller intermediate dimension, $I_{fg}$.</li>
+<li>
+<p>The router activates the Top-$K$ experts for each token.</p>
+</li>
+<li>
+<p><strong>FLOPs:</strong> The computation for one token involves $K$ experts. The FLOPs per token are $K \times (2HI_{fg} + 2HI_{fg}) = 4KHI_{fg}$. The total FLOPs are $T \times 4KHI_{fg}$.</p>
+</li>
 <li>
 <p><strong>Equating FLOPs:</strong> To match the dense model's computational cost, we set:
   $$ 4THI = 4TKHI_{fg} \implies I = K \cdot I_{fg} $$
@@ -686,12 +738,16 @@ Now, we replace the dense FFN with an MoE layer. We want to keep the FLOPs the s
 <p><strong>The Payoff:</strong>
 For the same computational cost as a dense layer, an MoE layer has $\frac{N_{fg}}{K}$ times more parameters.</p>
 <p><strong>Concrete Example:</strong>
-Let's design an MoE to replace a dense FFN where $H=4096$ and $I=4H=16384$.
-- <strong>Dense FFN:</strong>
-  - FLOPs per token $\propto I = 16384$.
-  - Parameters $\propto 2HI = 2 \cdot 4096 \cdot 16384 \approx 134M$.</p>
+Let's design an MoE to replace a dense FFN where $H=4096$ and $I=4H=16384$.</p>
 <ul>
-<li><strong>Fine-Grained MoE:</strong> Let's use $K=2$ active experts (a common choice).</li>
+<li><strong>Dense FFN:</strong></li>
+<li>FLOPs per token $\propto I = 16384$.</li>
+<li>
+<p>Parameters $\propto 2HI = 2 \cdot 4096 \cdot 16384 \approx 134M$.</p>
+</li>
+<li>
+<p><strong>Fine-Grained MoE:</strong> Let's use $K=2$ active experts (a common choice).</p>
+</li>
 <li>To match FLOPs, we need $K \cdot I_{fg} = I \implies 2 \cdot I_{fg} = 16384 \implies I_{fg} = 8192$. Each expert is half the size of the original dense FFN.</li>
 <li>Now, let's say we use $N_{fg}=8$ total experts (like Mixtral 8x7B).</li>
 <li><strong>Total Parameters:</strong> $\text{Params}_{MoE} = \frac{N_{fg}}{K} \cdot \text{Params}_{Dense} = \frac{8}{2} \times 134M = 4 \times 134M = 536M$.</li>
@@ -707,12 +763,16 @@ $$ \text{softmax}(\boldsymbol{x})_i = \frac{e^{x_i - m}}{ \sum_{j=1}^{N} e^{x_j 
 This is numerically stable because the largest exponent is now 0 (since $e^{m-m}=e^0=1$), preventing overflow. At least one term in the denominator is 1, preventing underflow of the sum.</p>
 <p>However, this still requires a full pass over the vector $\boldsymbol{x}$ to find the global maximum $m$ <em>before</em> we can compute the numerators and the final sum. This is incompatible with a tiled approach where we only have a small block of $\boldsymbol{x}$ in fast memory at any given time.</p>
 <p><strong>2. Deriving the Online Update Rule</strong></p>
-<p>The online algorithm maintains running statistics. Let's say we have processed a block of inputs $\boldsymbol{x}^{(1)} = [x_1, ..., x_k]$ and computed their partial softmax statistics:
-- Running maximum: $m^{(1)} = \max(x_1, ..., x_k)$
-- Running denominator: $l^{(1)} = \sum_{j=1}^{k} e^{x_j - m^{(1)}}$</p>
-<p>Now, a new block of inputs $\boldsymbol{x}^{(2)} = [x_{k+1}, ..., x_N]$ arrives. We can compute its local statistics:
-- Local maximum: $m^{(2)} = \max(x_{k+1}, ..., x_N)$
-- Local denominator: $l^{(2)} = \sum_{j=k+1}^{N} e^{x_j - m^{(2)}}$</p>
+<p>The online algorithm maintains running statistics. Let's say we have processed a block of inputs $\boldsymbol{x}^{(1)} = [x_1, ..., x_k]$ and computed their partial softmax statistics:</p>
+<ul>
+<li>Running maximum: $m^{(1)} = \max(x_1, ..., x_k)$</li>
+<li>Running denominator: $l^{(1)} = \sum_{j=1}^{k} e^{x_j - m^{(1)}}$</li>
+</ul>
+<p>Now, a new block of inputs $\boldsymbol{x}^{(2)} = [x_{k+1}, ..., x_N]$ arrives. We can compute its local statistics:</p>
+<ul>
+<li>Local maximum: $m^{(2)} = \max(x_{k+1}, ..., x_N)$</li>
+<li>Local denominator: $l^{(2)} = \sum_{j=k+1}^{N} e^{x_j - m^{(2)}}$</li>
+</ul>
 <p>The goal is to combine $(\boldsymbol{x}^{(1)}, m^{(1)}, l^{(1)})$ and $(\boldsymbol{x}^{(2)}, m^{(2)}, l^{(2)})$ to get the statistics for the full vector $\boldsymbol{x} = [\boldsymbol{x}^{(1)}, \boldsymbol{x}^{(2)}]$.</p>
 <p>The new global maximum is simply:
 $$ m^{\text{new}} = \max(m^{(1)}, m^{(2)}) $$</p>
@@ -768,27 +828,33 @@ O_i = O_i / l_i
 <p>A: This is a classic example of trading compute for memory bandwidth, a winning strategy on modern hardware where compute scales much faster than memory.</p>
 <p><strong>1. Standard Attention Backward Pass</strong></p>
 <p>Let's analyze the memory requirements for a standard backward pass. The attention output $O$ is computed as $O = P V$, where $P = \text{softmax}(S)$ and $S = \frac{QK^T}{\sqrt{d_k}}$.
-To compute the gradients with respect to the inputs ($dQ, dK, dV$), the chain rule requires the intermediate attention matrix $P$.
-- $dV = P^T dO$
-- $dP = dO V^T$
-- $dS = \text{grad_softmax}(P, dP)$
-- $dQ = dS K / \sqrt{d_k}$
-- $dK = dS^T Q / \sqrt{d_k}$</p>
+To compute the gradients with respect to the inputs ($dQ, dK, dV$), the chain rule requires the intermediate attention matrix $P$.</p>
+<ul>
+<li>$dV = P^T dO$</li>
+<li>$dP = dO V^T$</li>
+<li>$dS = \text{grad_softmax}(P, dP)$</li>
+<li>$dQ = dS K / \sqrt{d_k}$</li>
+<li>$dK = dS^T Q / \sqrt{d_k}$</li>
+</ul>
 <p>The key bottleneck is that to compute $dP, dS, dQ, dK$, we need to have the $N \times N$ attention matrix $P$ (where $N$ is sequence length) that was computed during the forward pass.</p>
-<p><strong>Memory Cost of Storing P:</strong>
-- The matrix $P$ has dimensions $N \times N$.
-- Storing it in FP32 requires $4 N^2$ bytes.
-- For a typical context length of $N=4096$, this is $4 \times (4096)^2 \approx 67$ MB.
-- For $N=16384$, this is $4 \times (16384)^2 \approx 1.07$ GB per attention head, per layer! This is clearly not scalable and quickly exhausts GPU HBM.</p>
+<p><strong>Memory Cost of Storing P:</strong></p>
+<ul>
+<li>The matrix $P$ has dimensions $N \times N$.</li>
+<li>Storing it in FP32 requires $4 N^2$ bytes.</li>
+<li>For a typical context length of $N=4096$, this is $4 \times (4096)^2 \approx 67$ MB.</li>
+<li>For $N=16384$, this is $4 \times (16384)^2 \approx 1.07$ GB per attention head, per layer! This is clearly not scalable and quickly exhausts GPU HBM.</li>
+</ul>
 <p><strong>2. FlashAttention's Recomputation Strategy</strong></p>
 <p>FlashAttention avoids this $O(N^2)$ memory cost by not storing the full attention matrix $P$. Instead, during the backward pass, it recomputes the necessary blocks of $P$ on-the-fly.</p>
-<p><strong>The Backward Pass Algorithm:</strong>
-1.  The gradients $dO$ and the original inputs $Q, K, V$ are read from HBM.
-2.  The backward pass iterates through blocks of $Q, K, V$ in the same way as the forward pass.
-3.  For each block, it recomputes the corresponding block of the score matrix $S_{ij} = Q_i K_j^T$.
-4.  Using the recomputed $S_{ij}$ and the saved online softmax statistics ($m_i, l_i$ from the forward pass, which only cost $O(N)$ memory), it can exactly reconstruct the corresponding block of $P_{ij}$.
-5.  With this on-the-fly block of $P_{ij}$ and the corresponding block of $dO_i$, it computes the local gradients $dS_{ij}$, and accumulates the global gradients $dQ, dK, dV$.
-6.  The recomputed block of $P_{ij}$ is then discarded.</p>
+<p><strong>The Backward Pass Algorithm:</strong></p>
+<ol>
+<li>The gradients $dO$ and the original inputs $Q, K, V$ are read from HBM.</li>
+<li>The backward pass iterates through blocks of $Q, K, V$ in the same way as the forward pass.</li>
+<li>For each block, it recomputes the corresponding block of the score matrix $S_{ij} = Q_i K_j^T$.</li>
+<li>Using the recomputed $S_{ij}$ and the saved online softmax statistics ($m_i, l_i$ from the forward pass, which only cost $O(N)$ memory), it can exactly reconstruct the corresponding block of $P_{ij}$.</li>
+<li>With this on-the-fly block of $P_{ij}$ and the corresponding block of $dO_i$, it computes the local gradients $dS_{ij}$, and accumulates the global gradients $dQ, dK, dV$.</li>
+<li>The recomputed block of $P_{ij}$ is then discarded.</li>
+</ol>
 <p><strong>3. Quantifying the Trade-off</strong></p>
 <p>Let's analyze the costs for a sequence of length $N$ and head dimension $d_k$.</p>
 <table>
@@ -817,14 +883,18 @@ To compute the gradients with respect to the inputs ($dQ, dK, dV$), the chain ru
 </tr>
 </tbody>
 </table>
-<p><strong>Analysis:</strong>
-- <strong>Memory Savings:</strong> FlashAttention reduces the HBM memory requirement for intermediate activations from $O(N^2)$ to $O(N)$. For $N=4k, d_k=64$, this is a reduction from $\approx 67$MB to $\approx 32$KB—a &gt;2000x reduction. This is the primary win.
-- <strong>Memory Bandwidth Trade-off:</strong> Instead of one large $O(N^2)$ read of matrix $P$, FlashAttention performs $O(Nd_k)$ reads of $Q$ and $K$. Since typically $d_k \ll N$ (e.g., $64 \ll 4096$), the amount of data read from HBM is significantly less: $O(Nd_k) \ll O(N^2)$.
-- <strong>Compute Cost:</strong> The price is re-doing the $QK^T$ matrix multiplication, which adds $O(N^2 d_k)$ FLOPs.</p>
+<p><strong>Analysis:</strong></p>
+<ul>
+<li><strong>Memory Savings:</strong> FlashAttention reduces the HBM memory requirement for intermediate activations from $O(N^2)$ to $O(N)$. For $N=4k, d_k=64$, this is a reduction from $\approx 67$MB to $\approx 32$KB—a &gt;2000x reduction. This is the primary win.</li>
+<li><strong>Memory Bandwidth Trade-off:</strong> Instead of one large $O(N^2)$ read of matrix $P$, FlashAttention performs $O(Nd_k)$ reads of $Q$ and $K$. Since typically $d_k \ll N$ (e.g., $64 \ll 4096$), the amount of data read from HBM is significantly less: $O(Nd_k) \ll O(N^2)$.</li>
+<li><strong>Compute Cost:</strong> The price is re-doing the $QK^T$ matrix multiplication, which adds $O(N^2 d_k)$ FLOPs.</li>
+</ul>
 <p><strong>Why is this a win?</strong>
-The Roofline model tells us that performance is limited by either compute throughput or memory bandwidth.
-- <strong>Standard Attention:</strong> The need to read the massive $N \times N$ matrix $P$ from slow HBM makes the backward pass severely <strong>memory-bound</strong>. The GPU's powerful compute units spend most of their time idle, waiting for data.
-- <strong>FlashAttention:</strong> By recomputing, the algorithm trades a massive HBM read for extra on-chip computation. Since modern GPUs have a very high compute-to-memory-bandwidth ratio, this is an excellent trade. The additional FLOPs can be executed quickly by the SMs using data that is already in registers or SRAM. The algorithm becomes much more <strong>compute-bound</strong>, allowing it to run closer to the GPU's peak theoretical throughput.</p>
+The Roofline model tells us that performance is limited by either compute throughput or memory bandwidth.</p>
+<ul>
+<li><strong>Standard Attention:</strong> The need to read the massive $N \times N$ matrix $P$ from slow HBM makes the backward pass severely <strong>memory-bound</strong>. The GPU's powerful compute units spend most of their time idle, waiting for data.</li>
+<li><strong>FlashAttention:</strong> By recomputing, the algorithm trades a massive HBM read for extra on-chip computation. Since modern GPUs have a very high compute-to-memory-bandwidth ratio, this is an excellent trade. The additional FLOPs can be executed quickly by the SMs using data that is already in registers or SRAM. The algorithm becomes much more <strong>compute-bound</strong>, allowing it to run closer to the GPU's peak theoretical throughput.</li>
+</ul>
 <p>In essence, FlashAttention's backward pass avoids the single slowest operation—transferring a gigantic matrix from HBM—at the cost of more of the fastest operation—on-chip arithmetic.</p>
 <h3 id="q-a-cuda-kernel-maps-each-thread-to-a-single-data-element-using-threadidx-while-a-triton-kernel-operates-on-a-vector-of-offsets-why-does-tritons-block-level-vectorized-programming-model-often-lead-to-high-performance-with-less-effort-especially-regarding-memory-access">Q: A CUDA kernel maps each thread to a single data element using <code>threadIdx</code>, while a Triton kernel operates on a vector of <code>offsets</code>. Why does Triton's block-level, vectorized programming model often lead to high performance with less effort, especially regarding memory access?</h3>
 <p>A: This question highlights a fundamental shift in the programming abstraction for GPUs. While both CUDA C++ and Triton compile down to similar machine code (PTX), Triton's model is designed to automate common but tricky GPU optimizations, particularly memory coalescing.</p>
@@ -885,13 +955,18 @@ def add_kernel(x_ptr, y_ptr, out_ptr, N, BLOCK_SIZE: tl.constexpr):
 </ol>
 <p>In short, the CUDA model says, "Here's what one thread does; figure out how to run 32 of them efficiently." The Triton model says, "Here's a whole chunk of data I want to process; you, the compiler, are the expert on the hardware, so figure out the best way to load, store, and compute it." This higher-level abstraction allows the compiler to make informed, hardware-specific decisions that lead to high performance without burdening the programmer with low-level hardware details.</p></section><section id="parallelism" class="ddsec"><h2>Parallelism: DP / TP / PP / ZeRO / FSDP</h2><h3 id="q-fsdp-zero-3-is-often-preferred-for-its-memory-savings-but-it-seems-to-have-15x-the-communication-volume-of-standard-data-parallelism-all_reduce-why-is-it-still-considered-highly-efficient-in-practice">Q: FSDP (ZeRO-3) is often preferred for its memory savings, but it seems to have 1.5x the communication volume of standard Data Parallelism (<code>all_reduce</code>). Why is it still considered highly efficient in practice?</h3>
 <p>This is a crucial observation. While FSDP (Fully Sharded Data Parallel, equivalent to ZeRO-3) does transfer more data, its efficiency comes from <strong>overlapping communication with computation</strong>. The raw communication volume is a misleading metric for wall-clock time if the communication can be hidden behind computation.</p>
-<p>Let's first confirm the communication volume. Let $\Psi$ be the number of model parameters and $N_d$ be the number of devices.
-*   <strong>Standard DDP:</strong> Performs one <code>all_reduce</code> on the gradients per step. An <code>all_reduce</code> is equivalent to a <code>reduce_scatter</code> followed by an <code>all_gather</code>. The total data sent and received by each GPU is approximately $2 \times |\Psi|$ bytes.
-*   <strong>FSDP (ZeRO-3):</strong>
-    1.  <strong>Forward Pass:</strong> One <code>all_gather</code> for each layer's parameters before its computation. Total over all layers: $|\Psi|$ bytes.
-    2.  <strong>Backward Pass:</strong> One <code>all_gather</code> for each layer's parameters, followed by a <code>reduce_scatter</code> for its gradients. Total over all layers: $|\Psi| + |\Psi| = 2|\Psi|$ bytes.</p>
-<pre><code>The total communication volume is approximately $3 \times |\Psi|$ bytes, which is indeed 1.5x that of standard DDP.
-</code></pre>
+<p>Let's first confirm the communication volume. Let $\Psi$ be the number of model parameters and $N_d$ be the number of devices.</p>
+<ul>
+<li><strong>Standard DDP:</strong> Performs one <code>all_reduce</code> on the gradients per step. An <code>all_reduce</code> is equivalent to a <code>reduce_scatter</code> followed by an <code>all_gather</code>. The total data sent and received by each GPU is approximately $2 \times |\Psi|$ bytes.</li>
+<li>
+<p><strong>FSDP (ZeRO-3):</strong></p>
+<ol>
+<li><strong>Forward Pass:</strong> One <code>all_gather</code> for each layer's parameters before its computation. Total over all layers: $|\Psi|$ bytes.</li>
+<li><strong>Backward Pass:</strong> One <code>all_gather</code> for each layer's parameters, followed by a <code>reduce_scatter</code> for its gradients. Total over all layers: $|\Psi| + |\Psi| = 2|\Psi|$ bytes.</li>
+</ol>
+<p>The total communication volume is approximately $3 \times |\Psi|$ bytes, which is indeed 1.5x that of standard DDP.</p>
+</li>
+</ul>
 <p>The key is that FSDP's communication is not a single blocking call at the end of the backward pass. Instead, it's broken into smaller, per-layer chunks that can be scheduled intelligently.</p>
 <p><strong>Intuition: The FSDP Execution Timeline</strong></p>
 <p>Modern GPU programming uses streams to execute operations asynchronously. We can have a <code>compute_stream</code> for calculations (like matrix multiplies) and a <code>comm_stream</code> for data transfers (like <code>all_gather</code>).</p>
@@ -913,9 +988,11 @@ Comm Stream:    | Gather L | Gather L+1 | Gather L+2 | ...
 <p><strong>Formal Condition for Perfect Overlap</strong></p>
 <p>The communication latency is hidden if the time to compute is greater than or equal to the time to communicate.
 $$ T_{\text{compute}}(L) \ge T_{\text{comm}}(L+1) $$</p>
-<p>Let's model these times:
-*   <strong>Communication Time:</strong> A common model for collective communication is $T_{\text{comm}}(M) = \alpha + \beta M$, where $\alpha$ is the latency overhead, $M$ is the message size in bytes, and $\beta$ is the reciprocal of the effective bandwidth. For an <code>all_gather</code> of a layer with $|\Psi_L|$ parameters (at 2 bytes/param), $M = 2|\Psi_L|$.
-*   <strong>Computation Time:</strong> This is the number of floating-point operations (FLOPs) for the layer, divided by the GPU's effective TFLOPS. $T_{\text{compute}}(L) = \frac{\text{FLOPs}(L)}{\text{TFLOPS}_{\text{effective}}}$.</p>
+<p>Let's model these times:</p>
+<ul>
+<li><strong>Communication Time:</strong> A common model for collective communication is $T_{\text{comm}}(M) = \alpha + \beta M$, where $\alpha$ is the latency overhead, $M$ is the message size in bytes, and $\beta$ is the reciprocal of the effective bandwidth. For an <code>all_gather</code> of a layer with $|\Psi_L|$ parameters (at 2 bytes/param), $M = 2|\Psi_L|$.</li>
+<li><strong>Computation Time:</strong> This is the number of floating-point operations (FLOPs) for the layer, divided by the GPU's effective TFLOPS. $T_{\text{compute}}(L) = \frac{\text{FLOPs}(L)}{\text{TFLOPS}_{\text{effective}}}$.</li>
+</ul>
 <p>For a Transformer layer, the FLOPs are dominated by matrix multiplications and are proportional to <code>batch_size * seq_len * hidden_dim^2</code>. The parameters $|\Psi_L|$ are proportional to <code>hidden_dim^2</code>. For large hidden dimensions, the computation time grows faster than the communication time, making it easier to hide the latency.</p>
 <p><strong>Pseudocode with Overlap</strong></p>
 <pre><code class="language-python"># Simplified FSDP forward pass with overlapping
@@ -1004,22 +1081,28 @@ Here, $X \in \mathbb{R}^{s \times h}$, $W_{up} \in \mathbb{R}^{h \times 4h}$, an
     return Y
 </code></pre>
 <p><strong>Backward Pass</strong></p>
-<p>The backward pass mirrors this logic. The gradient <code>dY</code> is replicated. The backward pass of an <code>all_reduce</code> is an identity operation, so each GPU starts with <code>dY</code>.
-1.  The gradient for the row-parallel layer (<code>dG_shard</code>) will be sharded, which is exactly what's needed as input for the backward pass of the GELU and the column-parallel layer.
-2.  The gradient with respect to the input, <code>dX</code>, will be a partial sum on each GPU, requiring a final <code>all_reduce</code> to be correctly accumulated.</p>
+<p>The backward pass mirrors this logic. The gradient <code>dY</code> is replicated. The backward pass of an <code>all_reduce</code> is an identity operation, so each GPU starts with <code>dY</code>.</p>
+<ol>
+<li>The gradient for the row-parallel layer (<code>dG_shard</code>) will be sharded, which is exactly what's needed as input for the backward pass of the GELU and the column-parallel layer.</li>
+<li>The gradient with respect to the input, <code>dX</code>, will be a partial sum on each GPU, requiring a final <code>all_reduce</code> to be correctly accumulated.</li>
+</ol>
 <p>This elegant pairing avoids materializing the full $s \times 4h$ intermediate tensor on any single GPU and collapses the communication into a single <code>all_reduce</code> at the end of the block.</p>
 <h3 id="q-in-pipeline-parallelism-increasing-the-number-of-microbatches-m-reduces-the-bubble-overhead-however-very-small-microbatches-can-underutilize-the-gpu-how-can-we-formally-analyze-this-trade-off-to-find-the-optimal-number-of-microbatches">Q: In Pipeline Parallelism, increasing the number of microbatches <code>m</code> reduces the "bubble" overhead. However, very small microbatches can underutilize the GPU. How can we formally analyze this trade-off to find the optimal number of microbatches?</h3>
 <p>This is a classic systems trade-off between minimizing pipeline stalls and maximizing single-device performance. We can find the optimal number of microbatches, $m_{opt}$, by creating a simple cost model for the total execution time and minimizing it.</p>
-<p>Let's define our variables:
-*   $p$: Number of pipeline stages (GPUs).
-*   $B$: Global batch size.
-*   $m$: Number of microbatches.
-*   $b$: Microbatch size, where $b = B/m$.</p>
+<p>Let's define our variables:</p>
+<ul>
+<li>$p$: Number of pipeline stages (GPUs).</li>
+<li>$B$: Global batch size.</li>
+<li>$m$: Number of microbatches.</li>
+<li>$b$: Microbatch size, where $b = B/m$.</li>
+</ul>
 <p><strong>1. Modeling Single-GPU Microbatch Time</strong></p>
 <p>The time to process one microbatch of size $b$ on a single GPU, $T_{step}(b)$, is not perfectly linear. It includes fixed overheads (kernel launches, memory allocation) and a compute component. A simple but effective model is:
-$$ T_{step}(b) = T_{ov} + T_{comp} \cdot b $$
-*   $T_{ov}$: The fixed overhead per microbatch, independent of its size.
-*   $T_{comp}$: The compute time per single example in the microbatch.</p>
+$$ T_{step}(b) = T_{ov} + T_{comp} \cdot b $$</p>
+<ul>
+<li>$T_{ov}$: The fixed overhead per microbatch, independent of its size.</li>
+<li>$T_{comp}$: The compute time per single example in the microbatch.</li>
+</ul>
 <p><strong>2. Modeling Total Pipeline Execution Time</strong></p>
 <p>Using the standard 1F1B (one forward, one backward) schedule, the pipeline has a "bubble" at the beginning (filling the pipe) and end (draining the pipe). The total time to process a global batch is the sum of the time for all microbatches to pass through the steady-state portion of the pipe, plus the bubble time.</p>
 <p>The total duration consists of $(m + p - 1)$ "ticks," where each tick is the time to process one microbatch on one stage.
@@ -1030,9 +1113,11 @@ $$ T_{wall}(m) = (m + p - 1) \left( T_{ov} + T_{comp} \frac{B}{m} \right) $$</p>
 <p>Let's expand this expression:
 $$ T_{wall}(m) = m T_{ov} + m T_{comp} \frac{B}{m} + (p-1)T_{ov} + (p-1)T_{comp}\frac{B}{m} $$
 $$ T_{wall}(m) = m T_{ov} + T_{comp} B + (p-1)T_{ov} + \frac{(p-1)T_{comp}B}{m} $$</p>
-<p>The term $T_{comp} B$ is the total compute time for the batch, which is constant. The term $(p-1)T_{ov}$ is also constant with respect to $m$. The parts that vary with $m$ are:
-*   $m T_{ov}$: Total overhead cost. This increases linearly with $m$ (more, smaller microbatches means more overhead).
-*   $\frac{(p-1)T_{comp}B}{m}$: Total bubble cost. This is the compute work of $(p-1)$ microbatches that is not parallelized. It decreases as $m$ increases.</p>
+<p>The term $T_{comp} B$ is the total compute time for the batch, which is constant. The term $(p-1)T_{ov}$ is also constant with respect to $m$. The parts that vary with $m$ are:</p>
+<ul>
+<li>$m T_{ov}$: Total overhead cost. This increases linearly with $m$ (more, smaller microbatches means more overhead).</li>
+<li>$\frac{(p-1)T_{comp}B}{m}$: Total bubble cost. This is the compute work of $(p-1)$ microbatches that is not parallelized. It decreases as $m$ increases.</li>
+</ul>
 <p><strong>3. Finding the Optimal <code>m</code></strong></p>
 <p>To find the value of $m$ that minimizes $T_{wall}(m)$, we can take the derivative with respect to $m$ and set it to zero. We only need to consider the terms that depend on $m$.
 $$ \frac{d}{dm} \left( m T_{ov} + \frac{(p-1)T_{comp}B}{m} \right) = 0 $$
@@ -1097,10 +1182,12 @@ $$</p>
 <p>$$
 C \approx 6 \times N \times D
 $$</p>
-<p>Where:
-- <code>N</code> is the number of non-embedding parameters.
-- <code>D</code> is the number of training tokens.
-- The factor of 6 comes from: <code>2</code> for the matrix multiply in the forward pass (<code>2 * N</code>), <code>4</code> for the corresponding backward pass (<code>4 * N</code>), totaling <code>6N</code> FLOPs per token.</p>
+<p>Where:</p>
+<ul>
+<li><code>N</code> is the number of non-embedding parameters.</li>
+<li><code>D</code> is the number of training tokens.</li>
+<li>The factor of 6 comes from: <code>2</code> for the matrix multiply in the forward pass (<code>2 * N</code>), <code>4</code> for the corresponding backward pass (<code>4 * N</code>), totaling <code>6N</code> FLOPs per token.</li>
+</ul>
 <p>An "IsoFLOP curve" (iso meaning "same") is the set of all pairs <code>(N, D)</code> that result in the same total compute <code>C</code>. On a plot of <code>D</code> vs. <code>N</code>, this is a hyperbola: <code>D = C / (6N)</code>.</p>
 <p><strong>The IsoFLOP Algorithm</strong></p>
 <p>The algorithm proceeds in two main phases: (1) Finding the optimal point for several fixed budgets, and (2) Fitting a scaling law to those optimal points.</p>
@@ -1184,9 +1271,11 @@ b = linear_regression(log_C, log_D_opt).slope
 print(f&quot;Optimal scaling exponents: a={a:.2f}, b={b:.2f}&quot;)
 </code></pre>
 <p><strong>Intuition and Result</strong></p>
-<p>The U-shape of the loss curve for a fixed budget makes intuitive sense:
-- <strong>Too small <code>N</code> (left side of U):</strong> The model lacks the capacity to learn from the vast amount of data (<code>D</code> is huge). It becomes the bottleneck.
-- <strong>Too large <code>N</code> (right side of U):</strong> The model is too large for the small amount of data it's shown (<code>D</code> is small). It is severely under-trained and cannot converge to a good solution.</p>
+<p>The U-shape of the loss curve for a fixed budget makes intuitive sense:</p>
+<ul>
+<li><strong>Too small <code>N</code> (left side of U):</strong> The model lacks the capacity to learn from the vast amount of data (<code>D</code> is huge). It becomes the bottleneck.</li>
+<li><strong>Too large <code>N</code> (right side of U):</strong> The model is too large for the small amount of data it's shown (<code>D</code> is small). It is severely under-trained and cannot converge to a good solution.</li>
+</ul>
 <p>The IsoFLOPs method systematically finds the "sweet spot" at the bottom of this U for various scales. Chinchilla's key finding using this method was that <code>a ≈ 0.5</code> and <code>b ≈ 0.5</code>. This implies that as you increase your compute budget <code>C</code>, you should scale both your model size and your dataset size proportionally to <code>sqrt(C)</code>. This was a major departure from previous work which suggested scaling <code>N</code> much more aggressively than <code>D</code>.</p>
 <h3 id="q-the-notes-state-that-chinchilla-optimal-training-may-not-be-what-you-want-for-deployment-leading-to-a-trend-of-over-training-can-you-formalize-the-trade-off-between-training-and-inference-costs-to-show-why-a-smaller-over-trained-model-can-be-economically-superior">Q: The notes state that Chinchilla-optimal training may not be what you want for deployment, leading to a trend of "over-training". Can you formalize the trade-off between training and inference costs to show why a smaller, "over-trained" model can be economically superior?</h3>
 <p>This is a crucial insight that bridges scaling law research with real-world production economics. The "compute-optimal" point found by Chinchilla minimizes the FLOPs required during <strong>training</strong> to reach a certain loss. However, for any successful model, the total compute spent on <strong>inference</strong> over its lifetime can dwarf the one-time training cost.</p>
@@ -1205,13 +1294,17 @@ $$
 \text{TCO}(N, D) = \text{Cost}_{train} + \text{Cost}_{inference} = 6ND + \gamma K N
 $$</p>
 <p><strong>The Chinchilla-Optimal Strategy</strong></p>
-<p>Chinchilla's analysis provides a recipe to achieve a target loss <code>L_target</code> with the minimum training compute <code>C_train</code>. Let's say this recipe calls for a model of size <code>N_{opt}</code> trained on <code>D_{opt}</code> tokens.
-- <code>C_{opt} = 6 N_{opt} D_{opt}</code>
-- The TCO for this strategy is: <code>TCO_{opt} = C_{opt} + \gamma K N_{opt}</code></p>
+<p>Chinchilla's analysis provides a recipe to achieve a target loss <code>L_target</code> with the minimum training compute <code>C_train</code>. Let's say this recipe calls for a model of size <code>N_{opt}</code> trained on <code>D_{opt}</code> tokens.</p>
+<ul>
+<li><code>C_{opt} = 6 N_{opt} D_{opt}</code></li>
+<li>The TCO for this strategy is: <code>TCO_{opt} = C_{opt} + \gamma K N_{opt}</code></li>
+</ul>
 <p><strong>The "Over-training" Strategy</strong></p>
-<p>Now, consider an alternative. What if we choose a <strong>smaller model</strong>, <code>N' &lt; N_{opt}</code>?
-- <strong>Benefit:</strong> The inference cost will be lower: <code>Cost'_{inference} = \gamma K N' &lt; \gamma K N_{opt}</code>.
-- <strong>Problem:</strong> To reach the <em>same target loss</em> <code>L_target</code> with a smaller model, we must compensate for its lower capacity by training it on much more data. Let's call this <code>D'</code>.</p>
+<p>Now, consider an alternative. What if we choose a <strong>smaller model</strong>, <code>N' &lt; N_{opt}</code>?</p>
+<ul>
+<li><strong>Benefit:</strong> The inference cost will be lower: <code>Cost'_{inference} = \gamma K N' &lt; \gamma K N_{opt}</code>.</li>
+<li><strong>Problem:</strong> To reach the <em>same target loss</em> <code>L_target</code> with a smaller model, we must compensate for its lower capacity by training it on much more data. Let's call this <code>D'</code>.</li>
+</ul>
 <p>We can use the Chinchilla scaling law for loss to find the required <code>D'</code>:
 $$
 L(N, D) = A \cdot N^{-\alpha} + B \cdot D^{-\beta} + E_{ir}
@@ -1226,11 +1319,13 @@ $$
 Since <code>N' &lt; N_{opt}</code>, the term <code>(N_{opt}^{-\alpha} - (N')^{-\alpha})</code> is negative, but this seems wrong. Let's re-examine the equation. <code>N' &lt; N_{opt}</code> means <code>(N')^{-α} &gt; N_{opt}^{-α}</code>. So the term is positive. This means <code>(D')^{-β}</code> will be larger, which implies <code>D'</code> will be smaller. This is the opposite of what we expect.</p>
 <p>Let's re-think the logic. The IsoFLOP curves show that for a <em>fixed</em> compute budget, moving away from <code>N_opt</code> increases loss. To get back to the same loss level with a smaller model, we must <em>increase</em> the total compute budget by training for longer.</p>
 <p>Let's use a simpler framing. The loss <code>L</code> is on a contour line in the <code>(N, D)</code> plane. The Chinchilla-optimal point <code>(N_{opt}, D_{opt})</code> is the point on this contour that minimizes <code>C = 6ND</code>. Any other point <code>(N', D')</code> on the same loss contour will have <code>C' = 6N'D' &gt; C_{opt}</code>.</p>
-<p>So, the "over-training" strategy is:
-1.  Pick a smaller model size <code>N' &lt; N_{opt}</code>.
-2.  Find the data <code>D'</code> required to hit the same loss <code>L_target</code>. This point <code>(N', D')</code> will lie on the same loss iso-line as <code>(N_{opt}, D_{opt})</code>.
-3.  This new training plan will have a higher training cost: <code>C' = 6N'D' &gt; C_{opt}</code>.
-4.  The TCO for this new strategy is: <code>TCO' = C' + \gamma K N'</code>.</p>
+<p>So, the "over-training" strategy is:</p>
+<ol>
+<li>Pick a smaller model size <code>N' &lt; N_{opt}</code>.</li>
+<li>Find the data <code>D'</code> required to hit the same loss <code>L_target</code>. This point <code>(N', D')</code> will lie on the same loss iso-line as <code>(N_{opt}, D_{opt})</code>.</li>
+<li>This new training plan will have a higher training cost: <code>C' = 6N'D' &gt; C_{opt}</code>.</li>
+<li>The TCO for this new strategy is: <code>TCO' = C' + \gamma K N'</code>.</li>
+</ol>
 <p><strong>When is Over-training Worth It?</strong></p>
 <p>We prefer the over-training strategy if <code>TCO' &lt; TCO_{opt}</code>:
 $$
@@ -1239,9 +1334,11 @@ $$
 $$
 (C' - C_{opt}) < \gamma K (N_{opt} - N')
 $$</p>
-<p>Let's analyze this inequality:
-- <strong>Left side (<code>C' - C_{opt}</code>):</strong> This is the <strong>increase in training cost</strong>. It's a positive, one-time cost.
-- <strong>Right side (<code>γK(N_{opt} - N')</code>):</strong> This is the <strong>total savings in inference cost</strong> over the model's lifetime. It's also positive.</p>
+<p>Let's analyze this inequality:</p>
+<ul>
+<li><strong>Left side (<code>C' - C_{opt}</code>):</strong> This is the <strong>increase in training cost</strong>. It's a positive, one-time cost.</li>
+<li><strong>Right side (<code>γK(N_{opt} - N')</code>):</strong> This is the <strong>total savings in inference cost</strong> over the model's lifetime. It's also positive.</li>
+</ul>
 <p>The inequality shows that over-training is economically superior if the lifetime inference savings outweigh the upfront increase in training cost.</p>
 <p><strong>Numerical Example</strong></p>
 <ul>
@@ -1275,11 +1372,15 @@ $$ \text{AI}_{\text{MLP}} \approx \frac{BDF}{DF} = B $$</p>
 <p><strong>Intuition:</strong> The largest piece of data moved is the weight matrix <code>W_up</code>, which is <code>O(DF)</code>. This single matrix is read from HBM and then re-used for all <code>B</code> sequences in the batch. The computation <code>O(BDF)</code> grows linearly with <code>B</code>, but the largest memory cost <code>O(DF)</code> is amortized. Thus, increasing the batch size <code>B</code> directly increases the arithmetic intensity, helping to make the operation compute-bound.</p>
 <h4 id="2-attention-layers-during-generation">2. Attention Layers during Generation</h4>
 <p>The situation is starkly different for attention. During generation, for each of the <code>B</code> sequences, the new query vector <code>q</code> (shape <code>(1, D)</code>) must attend to all <code>S</code> previous tokens in its own history, which are stored in its personal Key-Value (KV) cache.</p>
-<p>Let's analyze the first major computation: the dot-product of queries with keys, <code>AttentionScores = Q @ K^T</code>.
-*   <code>Q</code> is the batch of new queries: shape <code>(B, 1, D)</code>.
-*   <code>K_{cache}</code> is the batch of cached keys: shape <code>(B, S, D)</code>.</p>
+<p>Let's analyze the first major computation: the dot-product of queries with keys, <code>AttentionScores = Q @ K^T</code>.</p>
 <ul>
-<li><strong>FLOPs:</strong> We perform <code>B</code> independent matrix multiplications of a <code>(1, D)</code> matrix with a <code>(D, S)</code> matrix.<ul>
+<li><code>Q</code> is the batch of new queries: shape <code>(B, 1, D)</code>.</li>
+<li>
+<p><code>K_{cache}</code> is the batch of cached keys: shape <code>(B, S, D)</code>.</p>
+</li>
+<li>
+<p><strong>FLOPs:</strong> We perform <code>B</code> independent matrix multiplications of a <code>(1, D)</code> matrix with a <code>(D, S)</code> matrix.</p>
+<ul>
 <li>Total FLOPs: <code>B \times (2 \cdot 1 \cdot S \cdot D) = 2 \cdot B \cdot S \cdot D</code>.</li>
 </ul>
 </li>
@@ -1301,12 +1402,14 @@ $$ \text{AI}_{\text{Attention}} = \frac{2 \cdot BSD}{2 \cdot BD(S+1)} = \frac{S}
 <h3 id="q-speculative-decoding-accepts-a-token-x_i-from-a-draft-model-p-with-probability-min1-qx_ih-px_ih-where-q-is-the-target-model-how-can-we-be-sure-this-process-generates-a-sequence-with-the-exact-same-distribution-as-sampling-directly-from-the-target-model-q">Q: Speculative decoding accepts a token <code>x_i</code> from a draft model <code>p</code> with probability <code>min(1, q(x_i|H) / p(x_i|H))</code>, where <code>q</code> is the target model. How can we be sure this process generates a sequence with the exact same distribution as sampling directly from the target model <code>q</code>?</h3>
 <p>This is a fantastic question, as the correctness of speculative decoding relies on a clever application of rejection sampling. The guarantee that the final sample comes from the target distribution <code>q</code> is not immediately obvious. Let's derive it.</p>
 <p>Let <code>H</code> be the history (prompt + previously generated tokens). We want to sample the next token <code>x</code> from the target distribution <code>q(x|H)</code>. We use a cheaper draft model that produces a distribution <code>p(x|H)</code>.</p>
-<p>The algorithm for one step is as follows:
-1.  Sample a candidate token <code>x' ~ p(x|H)</code>.
-2.  Calculate the acceptance ratio <code>r = q(x'|H) / p(x'|H)</code>.
-3.  Accept <code>x'</code> with probability <code>min(1, r)</code>.
-4.  If <code>x'</code> is accepted, it becomes the final output for this step.
-5.  If <code>x'</code> is rejected, we must sample a token from a modified "correction" distribution.</p>
+<p>The algorithm for one step is as follows:</p>
+<ol>
+<li>Sample a candidate token <code>x' ~ p(x|H)</code>.</li>
+<li>Calculate the acceptance ratio <code>r = q(x'|H) / p(x'|H)</code>.</li>
+<li>Accept <code>x'</code> with probability <code>min(1, r)</code>.</li>
+<li>If <code>x'</code> is accepted, it becomes the final output for this step.</li>
+<li>If <code>x'</code> is rejected, we must sample a token from a modified "correction" distribution.</li>
+</ol>
 <p>The key is to show that the combination of the accepted draft tokens and the corrected rejection samples perfectly reconstructs the original target distribution <code>q</code>.</p>
 <h4 id="derivation">Derivation</h4>
 <p>Let's find the probability of sampling a specific token <code>x_k</code> as the final output, <code>P(x_{final} = x_k)</code>. A token can be chosen in two mutually exclusive ways: either it was the draft token and was accepted, or the draft token was rejected and it was chosen via the correction mechanism.</p>
@@ -1333,11 +1436,13 @@ $$ P(\text{reject and then sample } x_k) = P(\text{reject}) \times \frac{(q(x_k|
 <p>The total probability of <code>x_k</code> being the final sample is the sum of the probabilities from the two cases:
 $$ P(x_{final} = x_k) = P(\text{sample } x_k \text{ and accept } x_k) + P(\text{reject and then sample } x_k) $$
 $$ P(x_{final} = x_k) = \min(p(x_k|H), q(x_k|H)) + (q(x_k|H) - p(x_k|H))^+ $$</p>
-<p>Let's check the two possibilities for the relationship between <code>q</code> and <code>p</code>:
-1.  If <code>q(x_k|H) \le p(x_k|H)</code>:
-    $P(x_{final} = x_k) = q(x_k|H) + 0 = q(x_k|H)$.
-2.  If <code>q(x_k|H) &gt; p(x_k|H)</code>:
-    $P(x_{final} = x_k) = p(x_k|H) + (q(x_k|H) - p(x_k|H)) = q(x_k|H)$.</p>
+<p>Let's check the two possibilities for the relationship between <code>q</code> and <code>p</code>:</p>
+<ol>
+<li>If <code>q(x_k|H) \le p(x_k|H)</code>:
+    $P(x_{final} = x_k) = q(x_k|H) + 0 = q(x_k|H)$.</li>
+<li>If <code>q(x_k|H) &gt; p(x_k|H)</code>:
+    $P(x_{final} = x_k) = p(x_k|H) + (q(x_k|H) - p(x_k|H)) = q(x_k|H)$.</li>
+</ol>
 <p>In both cases, the final probability is exactly <code>q(x_k|H)</code>. The procedure is mathematically guaranteed to be an exact sample from the target model <code>q</code>.</p>
 <pre><code class="language-python">def speculative_sample_step(history, target_model, draft_model):
     &quot;&quot;&quot;
@@ -1382,10 +1487,12 @@ $$ P(x_{final} = x_k) = \min(p(x_k|H), q(x_k|H)) + (q(x_k|H) - p(x_k|H))^+ $$</p
 <h3 id="q-pagedattention-is-said-to-use-a-copy-on-write-mechanism-to-efficiently-handle-multiple-output-sequences-sharing-a-common-prefix-how-is-this-implemented-at-the-level-of-kv-cache-memory-blocks-and-what-is-the-precise-memory-saving-compared-to-a-naive-implementation">Q: PagedAttention is said to use a "copy-on-write" mechanism to efficiently handle multiple output sequences sharing a common prefix. How is this implemented at the level of KV cache memory blocks, and what is the precise memory saving compared to a naive implementation?</h3>
 <p>This question targets the core systems innovation of PagedAttention, which is crucial for high-throughput serving. The "copy-on-write" analogy from operating systems is powerful but can be slightly misleading; for standard decoding, it's more of a "share-then-append" mechanism.</p>
 <h4 id="the-problem-shared-prefixes-in-inference">The Problem: Shared Prefixes in Inference</h4>
-<p>A common inference scenario involves generating multiple sequences from a single prompt. Examples include:
-*   <strong>Beam Search:</strong> Generating <code>k</code> candidate sequences (beams).
-*   <strong>Parallel Sampling:</strong> Generating <code>N</code> independent samples for one user query to find the best one.
-*   <strong>Batching identical prompts:</strong> Multiple users asking the same question.</p>
+<p>A common inference scenario involves generating multiple sequences from a single prompt. Examples include:</p>
+<ul>
+<li><strong>Beam Search:</strong> Generating <code>k</code> candidate sequences (beams).</li>
+<li><strong>Parallel Sampling:</strong> Generating <code>N</code> independent samples for one user query to find the best one.</li>
+<li><strong>Batching identical prompts:</strong> Multiple users asking the same question.</li>
+</ul>
 <p>In all these cases, the initial processing of the prompt (the "prefill" stage) results in an identical KV cache for all <code>N</code> sequences.</p>
 <h4 id="naive-kv-cache-management">Naive KV Cache Management</h4>
 <p>Without PagedAttention, an inference server would typically allocate a contiguous block of memory for the KV cache of each sequence, large enough to hold the prompt and the maximum possible generation length.</p>

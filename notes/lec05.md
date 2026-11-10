@@ -3,6 +3,7 @@ Here are the detailed notes from the lecture on GPUs:
 # Lecture 5: GPUs
 
 **TL;DR**
+
 - GPUs are massively parallel processors optimized for throughput, not latency, by having many simple compute units (SMs) orchestrated by minimal control logic.
 - Compute (especially matrix multiplication) has scaled much faster than memory bandwidth, making memory access the primary bottleneck for modern ML workloads.
 - Optimizing GPU performance requires careful management of the memory hierarchy, leveraging fast on-chip memory (shared memory, registers) and minimizing slow global memory (DRAM) access.
@@ -10,6 +11,7 @@ Here are the detailed notes from the lecture on GPUs:
 - Flash Attention (and Flash Attention 2) dramatically accelerates attention by applying these low-level GPU optimization techniques, particularly online softmax computation and recomputation, to reduce HBM accesses.
 
 **Key Concepts**
+
 - GPU Architecture (SMs, SPs, Tensor Cores)
 - CPU vs. GPU Design Goals (Latency vs. Throughput)
 - Memory Hierarchy (Registers, Shared Memory, L1/L2 Cache, Global Memory/HBM)
@@ -286,6 +288,7 @@ Here are the detailed notes from the lecture on GPUs:
 ---
 
 **Practical Takeaways**
+
 - **Memory is King:** For modern ML on GPUs, memory bandwidth is often the bottleneck, not raw FLOPs. Prioritize minimizing global memory access.
 - **Embrace Low-Level Optimizations:** Techniques like tiling, fusion, coalescing, and recomputation are not just academic exercises; they are essential for achieving high performance.
 - **Understand the Memory Hierarchy:** Design algorithms to keep data in the fastest available memory (registers, shared memory) as much as possible.
@@ -293,6 +296,7 @@ Here are the detailed notes from the lecture on GPUs:
 - **Leverage Low Precision:** Use FP16, BF16, or INT8 where possible to reduce memory traffic and increase effective bandwidth.
 
 **Open Questions / Things to Remember**
+
 - How do different GPU architectures (e.g., NVIDIA vs. AMD vs. Intel) impact the optimal values for tiling sizes, burst sections, and other low-level parameters?
 - What are the practical implications of these low-level optimizations for researchers who primarily use high-level frameworks like PyTorch or TensorFlow? (e.g., how much can compilers like `torch.compile` automate?)
 - How do these principles extend to multi-GPU and distributed training scenarios?

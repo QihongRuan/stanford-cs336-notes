@@ -1,6 +1,7 @@
 ## Lecture 15: Alignment - SFT/RLHF
 
 **TL;DR**
+
 *   Post-training (alignment) is crucial to make large language models (LLMs) useful and safe, transitioning from raw pre-trained models to instruction-following agents like ChatGPT.
 *   Supervised Fine-Tuning (SFT) involves training on expert demonstrations, but the quality and style of this data significantly impact model behavior and can lead to issues like hallucination if not carefully managed.
 *   Reinforcement Learning from Human Feedback (RLHF) optimizes models to maximize a measurable reward function, moving beyond simply imitating a reference distribution.
@@ -8,6 +9,7 @@
 *   Algorithms like Proximal Policy Optimization (PPO) and Direct Preference Optimization (DPO) are used to adapt LLMs using human feedback, with DPO offering a simpler, more accessible approach by reframing RL as a maximum likelihood problem.
 
 **Key Concepts**
+
 *   Post-training / Alignment
 *   Supervised Fine-Tuning (SFT)
 *   Instruction Tuning Data (FLAN, Alpaca, Oasst)
@@ -35,16 +37,19 @@
 The lecture shifts focus from pre-training (building large models and data components) to **post-training** or **alignment**, which aims to make these pre-trained models useful and safe.
 
 **Motivation:**
+
 *   **GPT-3 vs. ChatGPT:** GPT-3 was a remarkable system, but not particularly "useful" in a product sense (e.g., it didn't follow instructions well). ChatGPT, however, transformed the landscape by effectively following instructions and performing amazing feats.
 *   **The Goal:** Understand the transition from a powerful pre-trained model (like GPT-3) to a highly aligned and useful system (like ChatGPT).
 
 **Key Aspects of Post-Training:**
+
 1.  **Instruction Following:** Enabling models to understand and execute complex, nested instructions.
     *   Example: GPT-4 generating `matplotlib` code from a long, detailed prompt (Sebastian Bubeck's "Sparks of AGI" paper). This ability to follow instructions is a key differentiator.
 2.  **Safety and Content Moderation:** Ensuring models are safe, prevent misuse (scams), and avoid generating toxic or harmful content.
     *   ChatGPT's success is partly attributed to its robust guardrails.
 
 **Core Idea of Post-Training:**
+
 *   Pre-training "packs" the model with capabilities (reasoning, answering questions), but these aren't accessible "out of the box."
 *   Post-training involves collecting specific data on desired behaviors and training the model to exhibit them.
 *   **Key Questions:**
@@ -66,6 +71,7 @@ This lecture covers **Part 1 (SFT)** and **Part 2 (RLHF)**.
 #### [5:11] Ingredients for SFT: Data and Method
 
 Two main considerations for SFT:
+
 1.  **Training Data**: What does expert demonstration data look like?
 2.  **Method**: How do we adapt the model to this data? (Beyond simple gradient descent, there are non-obvious aspects).
 
@@ -111,12 +117,14 @@ The speaker conducts a live annotation task where students are asked to provide 
 #### [5:06] What We Notice Across Datasets
 
 Instruction-tuning datasets vary significantly in:
+
 *   **Length and bullet points (style variations)**: Some prefer lists, some prefer long paragraphs.
 *   **References, other complex knowledge**: Some include citations, some assume deep domain knowledge.
 *   **Scale**: Amount of data collected.
 *   **Safety**: How models handle harmful or toxic content.
 
 **Style Variations in Data and Models:**
+
 *   A table from a survey by Ejong Wong et al. (2023) shows significant variation in the average length of prompts and completions across different datasets.
 *   **Human Preference**: Humans (and AI judges) have a strong preference for lists and longer outputs.
 *   **Concern**: Optimizing for stylistic preferences (like length) might overshadow optimizing for core capabilities (e.g., reducing hallucinations, improving factual accuracy).
@@ -168,6 +176,7 @@ Instruction-tuning datasets vary significantly in:
 #### [3:49:00] Why Optimize? Costs and G-V Gap
 
 Two main reasons to optimize with RLHF:
+
 1.  **Cost**: SFT data (expert demonstrations) can be very expensive to collect.
     *   Annotation costs for SFT are high (\$25k for 100 examples in one study).
     *   Pairwise feedback (used in RLHF) is cheaper (\$4k for 100 examples).
@@ -276,6 +285,7 @@ Two main reasons to optimize with RLHF:
 *   The question of how much models can "self-improve" through self-training loops is an active area of research.## Lecture 15: Alignment - SFT/RLHF
 
 **TL;DR**
+
 *   Post-training (alignment) is crucial to make large language models (LLMs) useful and safe, transitioning from raw pre-trained models to instruction-following agents like ChatGPT.
 *   Supervised Fine-Tuning (SFT) involves training on expert demonstrations, but the quality and style of this data significantly impact model behavior and can lead to issues like hallucination if not carefully managed.
 *   Reinforcement Learning from Human Feedback (RLHF) optimizes models to maximize a measurable reward function, moving beyond simply imitating a reference distribution.
@@ -283,6 +293,7 @@ Two main reasons to optimize with RLHF:
 *   Algorithms like Proximal Policy Optimization (PPO) and Direct Preference Optimization (DPO) are used to adapt LLMs using human feedback, with DPO offering a simpler, more accessible approach by reframing RL as a maximum likelihood problem.
 
 **Key Concepts**
+
 *   Post-training / Alignment
 *   Supervised Fine-Tuning (SFT)
 *   Instruction Tuning Data (FLAN, Alpaca, Oasst)
@@ -310,16 +321,19 @@ Two main reasons to optimize with RLHF:
 The lecture shifts focus from pre-training (building large models and data components) to **post-training** or **alignment**, which aims to make these pre-trained models useful and safe.
 
 **Motivation:**
+
 *   **GPT-3 vs. ChatGPT:** GPT-3 was a remarkable system, but not particularly "useful" in a product sense (e.g., it didn't follow instructions well). ChatGPT, however, transformed the landscape by effectively following instructions and performing amazing feats.
 *   **The Goal:** Understand the transition from a powerful pre-trained system (like GPT-3) to a highly aligned and useful system (like ChatGPT).
 
 **Key Aspects of Post-Training:**
+
 1.  **Instruction Following:** Enabling models to understand and execute complex, nested instructions.
     *   Example: GPT-4 generating `matplotlib` code from a long, detailed prompt (Sebastian Bubeck's "Sparks of AGI" paper). This ability to follow instructions is a key differentiator.
 2.  **Safety and Content Moderation:** Ensuring models are safe, prevent misuse (scams), and avoid generating toxic or harmful content.
     *   ChatGPT's success is partly attributed to its robust guardrails.
 
 **Core Idea of Post-Training:**
+
 *   Pre-training "packs" the model with capabilities (reasoning, answering questions), but these aren't accessible "out of the box."
 *   Post-training involves collecting specific data on desired behaviors and training the model to exhibit them.
 *   **Key Questions:**
@@ -341,6 +355,7 @@ This lecture covers **Part 1 (SFT)** and **Part 2 (RLHF)**.
 #### [5:11] Ingredients for SFT: Data and Method
 
 Two main considerations for SFT:
+
 1.  **Training Data**: What does expert demonstration data look like?
 2.  **Method**: How do we adapt the model to this data? (Beyond simple gradient descent, there are non-obvious aspects).
 
@@ -387,12 +402,14 @@ The speaker conducts a live annotation task where students are asked to provide 
 #### [5:06] What We Notice Across Datasets
 
 Instruction-tuning datasets vary significantly in:
+
 *   **Length and bullet points (style variations)**: Some prefer lists, some prefer long paragraphs.
 *   **References, other complex knowledge**: Some include citations, some assume deep domain knowledge.
 *   **Scale**: Amount of data collected.
 *   **Safety**: How models handle harmful or toxic content.
 
 **Style Variations in Data and Models:**
+
 *   A table from a survey by Ejong Wong et al. (2023) shows significant variation in the average length of prompts and completions across different datasets.
 *   **Human Preference**: Humans (and AI judges) have a strong preference for lists and longer outputs.
 *   **Concern**: Optimizing for stylistic preferences (like length) might overshadow optimizing for core capabilities (e.g., reducing hallucinations, improving factual accuracy).
@@ -444,6 +461,7 @@ Instruction-tuning datasets vary significantly in:
 #### [3:49:00] Why Optimize? Costs and G-V Gap
 
 Two main reasons to optimize with RLHF:
+
 1.  **Cost**: SFT data (expert demonstrations) can be very expensive to collect.
     *   Annotation costs for SFT are high (\$25k for 100 examples in one study).
     *   Pairwise feedback (used in RLHF) is cheaper (\$4k for 100 examples).

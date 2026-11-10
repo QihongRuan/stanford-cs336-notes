@@ -32,6 +32,7 @@ $$ \text{AI}_{\text{MLP}} \approx \frac{BDF}{DF} = B $$
 The situation is starkly different for attention. During generation, for each of the `B` sequences, the new query vector `q` (shape `(1, D)`) must attend to all `S` previous tokens in its own history, which are stored in its personal Key-Value (KV) cache.
 
 Let's analyze the first major computation: the dot-product of queries with keys, `AttentionScores = Q @ K^T`.
+
 *   `Q` is the batch of new queries: shape `(B, 1, D)`.
 *   `K_{cache}` is the batch of cached keys: shape `(B, S, D)`.
 
@@ -63,6 +64,7 @@ This is a fantastic question, as the correctness of speculative decoding relies 
 Let `H` be the history (prompt + previously generated tokens). We want to sample the next token `x` from the target distribution `q(x|H)`. We use a cheaper draft model that produces a distribution `p(x|H)`.
 
 The algorithm for one step is as follows:
+
 1.  Sample a candidate token `x' ~ p(x|H)`.
 2.  Calculate the acceptance ratio `r = q(x'|H) / p(x'|H)`.
 3.  Accept `x'` with probability `min(1, r)`.
@@ -109,6 +111,7 @@ $$ P(x_{final} = x_k) = P(\text{sample } x_k \text{ and accept } x_k) + P(\text{
 $$ P(x_{final} = x_k) = \min(p(x_k|H), q(x_k|H)) + (q(x_k|H) - p(x_k|H))^+ $$
 
 Let's check the two possibilities for the relationship between `q` and `p`:
+
 1.  If `q(x_k|H) \le p(x_k|H)`:
     $P(x_{final} = x_k) = q(x_k|H) + 0 = q(x_k|H)$.
 2.  If `q(x_k|H) > p(x_k|H)`:
@@ -166,6 +169,7 @@ This question targets the core systems innovation of PagedAttention, which is cr
 #### The Problem: Shared Prefixes in Inference
 
 A common inference scenario involves generating multiple sequences from a single prompt. Examples include:
+
 *   **Beam Search:** Generating `k` candidate sequences (beams).
 *   **Parallel Sampling:** Generating `N` independent samples for one user query to find the best one.
 *   **Batching identical prompts:** Multiple users asking the same question.

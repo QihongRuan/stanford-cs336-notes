@@ -207,6 +207,7 @@ The superiority of SwiGLU over ReLU stems from its **dynamic, input-dependent na
 Yes, this analysis is crucial for understanding why MQA and GQA are so important for efficient inference, especially with long contexts.
 
 **Setup:**
+
 *   $B$: Batch size
 *   $L$: Number of layers
 *   $N$: Current sequence length (context length)

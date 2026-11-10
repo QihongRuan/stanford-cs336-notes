@@ -101,18 +101,20 @@ figure.slide .ft{display:inline-block;font-variant-numeric:tabular-nums;font-wei
 <li>Perplexity, while a foundational metric, has limitations and is being supplemented by task-specific and human-preference benchmarks.</li>
 <li>Challenges include train-test overlap, data quality, and defining safety in AI, highlighting the need for robust and transparent evaluation protocols.</li>
 </ul>
-<p>Key concepts:
-- Perplexity
-- MMLU (Massive Multitask Language Understanding)
-- GPQA (Graduate-Level Google-Proof Q&amp;A)
-- Humanity's Last Exam (HLE)
-- Instruction-following benchmarks (Chatbot Arena, IFEval, AlpacaEval, WildBench)
-- Agent benchmarks (SWEBench, CyBench, MLEBench)
-- Pure reasoning benchmarks (ARC-AGI)
-- Safety benchmarks (HarmBench, AIR-Bench, Jailbreaking)
-- Pre-deployment testing
-- Realism and Validity in evaluation
-- Train-test overlap and contamination</p>
+<p>Key concepts:</p>
+<ul>
+<li>Perplexity</li>
+<li>MMLU (Massive Multitask Language Understanding)</li>
+<li>GPQA (Graduate-Level Google-Proof Q&amp;A)</li>
+<li>Humanity's Last Exam (HLE)</li>
+<li>Instruction-following benchmarks (Chatbot Arena, IFEval, AlpacaEval, WildBench)</li>
+<li>Agent benchmarks (SWEBench, CyBench, MLEBench)</li>
+<li>Pure reasoning benchmarks (ARC-AGI)</li>
+<li>Safety benchmarks (HarmBench, AIR-Bench, Jailbreaking)</li>
+<li>Pre-deployment testing</li>
+<li>Realism and Validity in evaluation</li>
+<li>Train-test overlap and contamination</li>
+</ul>
 <hr />
 <p>[00:00] <strong>Introduction to Evaluation</strong>
 The lecture begins by introducing evaluation as a seemingly simple but profoundly complex topic in language modeling. Mechanically, it's about assessing a fixed model's performance. However, the implications of how we evaluate models significantly influence their development and future.</p>
@@ -126,280 +128,404 @@ The current landscape of language model evaluation is characterized by a plethor
 <li><strong>"Vibes"</strong>: Informal demonstrations on social media (e.g., X) showcasing impressive model capabilities.</li>
 </ul>
 <p>[03:40] <strong>The Evaluation Crisis</strong>
-Andre Karpathy's tweet highlights a growing "evaluation crisis":
-- Traditional benchmarks like MMLU may be saturated or "gamed."
-- Chatbot Arena, while popular, has its own issues (e.g., reliance on API requests, prompt bombing, explicit use of rankings as training supervision).
-- There's a proliferation of benchmarks, but a lack of comprehensive, unbiased, and low-sample-size evaluations.</p>
+Andre Karpathy's tweet highlights a growing "evaluation crisis":</p>
+<ul>
+<li>Traditional benchmarks like MMLU may be saturated or "gamed."</li>
+<li>Chatbot Arena, while popular, has its own issues (e.g., reliance on API requests, prompt bombing, explicit use of rankings as training supervision).</li>
+<li>There's a proliferation of benchmarks, but a lack of comprehensive, unbiased, and low-sample-size evaluations.</li>
+</ul>
 <p>The overall sentiment is that the current state of evaluation is messy, and it's unclear which methods are truly reliable.</p>
 <p>[04:40] <strong>How to Think About Evaluation</strong>
 Evaluation is not a mere mechanical process; it's a profound topic that shapes the future of language models. The choice of evaluation methods directly influences how models are built, as developers optimize for metrics.</p>
 <p>[05:55] <strong>What's the Point of Evaluation?</strong>
-There is no single "true" evaluation. The purpose of evaluation depends entirely on the question one is trying to answer.
-1.  <strong>User/Company</strong>: To make a purchase decision (e.g., choosing a customer service chatbot).
-2.  <strong>Researcher</strong>: To measure the raw capabilities of a model and understand scientific progress in AI.
-3.  <strong>Policymaker/Business</strong>: To objectively understand the benefits and harms of a model for regulatory or business reasons.
-4.  <strong>Model Developer</strong>: To get feedback for improving the model during its development cycle.</p>
+There is no single "true" evaluation. The purpose of evaluation depends entirely on the question one is trying to answer.</p>
+<ol>
+<li><strong>User/Company</strong>: To make a purchase decision (e.g., choosing a customer service chatbot).</li>
+<li><strong>Researcher</strong>: To measure the raw capabilities of a model and understand scientific progress in AI.</li>
+<li><strong>Policymaker/Business</strong>: To objectively understand the benefits and harms of a model for regulatory or business reasons.</li>
+<li><strong>Model Developer</strong>: To get feedback for improving the model during its development cycle.</li>
+</ol>
 <p>In each case, there's an abstract goal that needs to be translated into a concrete evaluation.</p>
 <p>[08:05] <strong>Framework for Evaluation</strong>
-A simple framework for thinking about evaluation involves four key questions:
-1.  <strong>What are the inputs?</strong> (The prompts)
-2.  <strong>How do you call the language model?</strong>
-3.  <strong>How do you evaluate the outputs?</strong>
-4.  <strong>How to interpret the results?</strong></p>
+A simple framework for thinking about evaluation involves four key questions:</p>
+<ol>
+<li><strong>What are the inputs?</strong> (The prompts)</li>
+<li><strong>How do you call the language model?</strong></li>
+<li><strong>How do you evaluate the outputs?</strong></li>
+<li><strong>How to interpret the results?</strong></li>
+</ol>
 <p>Let's break these down:</p>
-<p><strong>1. What are the inputs?</strong>
--   <strong>Use cases covered</strong>: Do the prompts represent a broad range of real-world use cases, or are they narrow and specific?
--   <strong>Representation of difficult inputs</strong>: Do the inputs challenge the model's limits, or are they easy, "vanilla" cases?
--   <strong>Inputs adapted to the model</strong>: In multi-turn (chatbot) settings, inputs are inherently adapted. For red-teaming, adapting inputs can be more efficient. However, adapting inputs makes cross-model comparison difficult.</p>
-<p><strong>2. How do you call the language model?</strong>
--   <strong>Prompting strategy</strong>: Few-shot, zero-shot, chain-of-thought, tool use, RAG, etc. Different strategies can significantly impact performance. Language models are very sensitive to prompts.
--   <strong>Evaluating the language model vs. agentic system</strong>: Model developers might focus on the raw language model, while users care about the overall system performance (including scaffolding, tools, etc.).</p>
-<p><strong>3. How do you evaluate the outputs?</strong>
--   <strong>Reference outputs</strong>: Are the reference outputs used for evaluation error-free? (Often, they are not.)
--   <strong>Metrics used</strong>: Which metrics are appropriate (e.g., <code>pass@k</code> for code generation)?
--   <strong>Cost factor</strong>: How is inference/training cost factored in? (Pareto frontiers are often useful here.)
--   <strong>Asymmetric errors</strong>: Are all errors equally bad? How are critical errors (e.g., hallucinations in medical settings) handled?
--   <strong>Open-ended generation</strong>: How do you evaluate responses without a clear ground truth (e.g., "Write me a compelling story")?</p>
-<p><strong>4. How to interpret the metrics?</strong>
--   <strong>Interpreting a number</strong>: What does a score (e.g., 91%) truly mean? Is it sufficient for deployment?
--   <strong>Assessing generalization</strong>: How do we know if the model has truly learned or just memorized? This involves confronting train-test overlap.
--   <strong>Evaluating the final model vs. the method</strong>: In research, the goal is often to evaluate a new method, not just a specific model instance. This requires careful controls.</p>
+<p><strong>1. What are the inputs?</strong></p>
+<ul>
+<li><strong>Use cases covered</strong>: Do the prompts represent a broad range of real-world use cases, or are they narrow and specific?</li>
+<li><strong>Representation of difficult inputs</strong>: Do the inputs challenge the model's limits, or are they easy, "vanilla" cases?</li>
+<li><strong>Inputs adapted to the model</strong>: In multi-turn (chatbot) settings, inputs are inherently adapted. For red-teaming, adapting inputs can be more efficient. However, adapting inputs makes cross-model comparison difficult.</li>
+</ul>
+<p><strong>2. How do you call the language model?</strong></p>
+<ul>
+<li><strong>Prompting strategy</strong>: Few-shot, zero-shot, chain-of-thought, tool use, RAG, etc. Different strategies can significantly impact performance. Language models are very sensitive to prompts.</li>
+<li><strong>Evaluating the language model vs. agentic system</strong>: Model developers might focus on the raw language model, while users care about the overall system performance (including scaffolding, tools, etc.).</li>
+</ul>
+<p><strong>3. How do you evaluate the outputs?</strong></p>
+<ul>
+<li><strong>Reference outputs</strong>: Are the reference outputs used for evaluation error-free? (Often, they are not.)</li>
+<li><strong>Metrics used</strong>: Which metrics are appropriate (e.g., <code>pass@k</code> for code generation)?</li>
+<li><strong>Cost factor</strong>: How is inference/training cost factored in? (Pareto frontiers are often useful here.)</li>
+<li><strong>Asymmetric errors</strong>: Are all errors equally bad? How are critical errors (e.g., hallucinations in medical settings) handled?</li>
+<li><strong>Open-ended generation</strong>: How do you evaluate responses without a clear ground truth (e.g., "Write me a compelling story")?</li>
+</ul>
+<p><strong>4. How to interpret the metrics?</strong></p>
+<ul>
+<li><strong>Interpreting a number</strong>: What does a score (e.g., 91%) truly mean? Is it sufficient for deployment?</li>
+<li><strong>Assessing generalization</strong>: How do we know if the model has truly learned or just memorized? This involves confronting train-test overlap.</li>
+<li><strong>Evaluating the final model vs. the method</strong>: In research, the goal is often to evaluate a new method, not just a specific model instance. This requires careful controls.</li>
+</ul>
 <p>[12:20] <strong>Perplexity</strong>
-Perplexity is a fundamental metric in language modeling.
--   <strong>Definition</strong>: A language model defines a probability distribution $p(x)$ over sequences of tokens. Perplexity, $PPL(D) = (1 / \prod_{x \in D} p(x))^{1/|D|}$, measures how well the model assigns high probability to a given dataset $D$.
--   <strong>Pre-training</strong>: During pre-training, models minimize perplexity on the training set.
--   <strong>Evaluation</strong>: The obvious way to evaluate a language model is to measure its perplexity on a held-out test set, typically with an i.i.d. split.</p>
+Perplexity is a fundamental metric in language modeling.</p>
+<ul>
+<li><strong>Definition</strong>: A language model defines a probability distribution $p(x)$ over sequences of tokens. Perplexity, $PPL(D) = (1 / \prod_{x \in D} p(x))^{1/|D|}$, measures how well the model assigns high probability to a given dataset $D$.</li>
+<li><strong>Pre-training</strong>: During pre-training, models minimize perplexity on the training set.</li>
+<li><strong>Evaluation</strong>: The obvious way to evaluate a language model is to measure its perplexity on a held-out test set, typically with an i.i.d. split.</li>
+</ul>
 <p>[17:00] <strong>Perplexity in the 2010s</strong>
-In the 2010s, language modeling research heavily relied on perplexity.
--   <strong>Standard datasets</strong>: Penn Treebank (WSJ), WikiText-103 (Wikipedia), 1 Billion Word Benchmark (from machine translation data like Europarl, UN news).
--   <strong>Research approach</strong>: Researchers would train models on a designated training split and evaluate on a designated test split, reporting perplexity.
--   <strong>Advancements</strong>: Papers like Jozefowicz et al. (2016) showed dramatic reductions in perplexity (e.g., from 51.3 to 30.0) using CNNs + LSTMs on the 1 Billion Word Benchmark. This was a significant achievement for advancing the field.</p>
+In the 2010s, language modeling research heavily relied on perplexity.</p>
+<ul>
+<li><strong>Standard datasets</strong>: Penn Treebank (WSJ), WikiText-103 (Wikipedia), 1 Billion Word Benchmark (from machine translation data like Europarl, UN news).</li>
+<li><strong>Research approach</strong>: Researchers would train models on a designated training split and evaluate on a designated test split, reporting perplexity.</li>
+<li><strong>Advancements</strong>: Papers like Jozefowicz et al. (2016) showed dramatic reductions in perplexity (e.g., from 51.3 to 30.0) using CNNs + LSTMs on the 1 Billion Word Benchmark. This was a significant achievement for advancing the field.</li>
+</ul>
 <p>[19:00] <strong>GPT-2 and the Shift in Evaluation</strong>
-GPT-2 (Radford et al., 2019) marked a turning point.
--   <strong>Training data</strong>: GPT-2 was trained on a massive 40GB web text dataset (websites linked from Reddit).
--   <strong>Evaluation</strong>: It was evaluated directly on standard perplexity benchmarks without fine-tuning (zero-shot).
--   <strong>Results</strong>: GPT-2 achieved state-of-the-art perplexity on many smaller benchmarks (like Penn Treebank) without specific training on them, demonstrating strong generalization. For larger datasets (like 1 Billion Word Benchmark), direct training was still superior.</p>
+GPT-2 (Radford et al., 2019) marked a turning point.</p>
+<ul>
+<li><strong>Training data</strong>: GPT-2 was trained on a massive 40GB web text dataset (websites linked from Reddit).</li>
+<li><strong>Evaluation</strong>: It was evaluated directly on standard perplexity benchmarks without fine-tuning (zero-shot).</li>
+<li><strong>Results</strong>: GPT-2 achieved state-of-the-art perplexity on many smaller benchmarks (like Penn Treebank) without specific training on them, demonstrating strong generalization. For larger datasets (like 1 Billion Word Benchmark), direct training was still superior.</li>
+</ul>
 <p>[20:40] <strong>Discussion on Train-Test Overlap</strong>
-The question arises: if GPT-2 was trained on web data, how do we know it wasn't implicitly trained on the test sets (e.g., Penn Treebank)?
--   <strong>Decontamination</strong>: Typically, researchers perform decontamination by removing any test set data (documents, paragraphs, n-grams) that overlap with the training data.
--   <strong>Subtleties</strong>: This process is complex, as near-duplicates or paraphrases might still exist, leading to potential contamination.
--   <strong>Conservative approach</strong>: Given the vastness of web data, if a model performs well on a test set even after careful decontamination, it's generally considered a valid result.</p>
+The question arises: if GPT-2 was trained on web data, how do we know it wasn't implicitly trained on the test sets (e.g., Penn Treebank)?</p>
+<ul>
+<li><strong>Decontamination</strong>: Typically, researchers perform decontamination by removing any test set data (documents, paragraphs, n-grams) that overlap with the training data.</li>
+<li><strong>Subtleties</strong>: This process is complex, as near-duplicates or paraphrases might still exist, leading to potential contamination.</li>
+<li><strong>Conservative approach</strong>: Given the vastness of web data, if a model performs well on a test set even after careful decontamination, it's generally considered a valid result.</li>
+</ul>
 <p>[22:20] <strong>Perplexity vs. Downstream Task Accuracy</strong>
-Since GPT-2 and GPT-3, language modeling papers have shifted focus towards downstream task accuracy. However, perplexity remains useful for several reasons:
--   <strong>Smoother for scaling laws</strong>: Perplexity provides a smoother signal than downstream task accuracy, making it easier to fit scaling curves.
--   <strong>Universal measure</strong>: Perplexity is "universal" in the sense that it pays attention to every token in a dataset, potentially capturing nuances that task-specific accuracy might miss. It's harder to game because it requires the model to accurately predict probabilities across the entire vocabulary.
--   <strong>Conditional perplexity</strong>: Perplexity can also be measured conditionally on downstream tasks (e.g., probability of the correct answer given the prompt), which is being explored in recent scaling law papers (Bhagias et al., 2024).</p>
-<p>[25:25] <strong>Caveats of Perplexity Evaluation</strong>
--   <strong>Trust in model provider</strong>: When running a leaderboard for perplexity, the evaluator needs to trust that the model provider is correctly computing probabilities that sum to one. If the model has a bug or intentionally misreports probabilities, the perplexity score can be misleading.
--   <strong>Perplexity maximalist view</strong>:
-    -   If the true data distribution is $T$ and the model is $P$, the best possible perplexity is the entropy of $T$, achieved when $P=T$.
-    -   If a model achieves $P=T$, it has effectively "solved" all tasks and reached AGI.
-    -   <strong>Caveat</strong>: Pushing down perplexity might not be the most efficient way to reach AGI, as it might involve optimizing for parts of the distribution that don't matter for specific tasks.</p>
+Since GPT-2 and GPT-3, language modeling papers have shifted focus towards downstream task accuracy. However, perplexity remains useful for several reasons:</p>
+<ul>
+<li><strong>Smoother for scaling laws</strong>: Perplexity provides a smoother signal than downstream task accuracy, making it easier to fit scaling curves.</li>
+<li><strong>Universal measure</strong>: Perplexity is "universal" in the sense that it pays attention to every token in a dataset, potentially capturing nuances that task-specific accuracy might miss. It's harder to game because it requires the model to accurately predict probabilities across the entire vocabulary.</li>
+<li><strong>Conditional perplexity</strong>: Perplexity can also be measured conditionally on downstream tasks (e.g., probability of the correct answer given the prompt), which is being explored in recent scaling law papers (Bhagias et al., 2024).</li>
+</ul>
+<p>[25:25] <strong>Caveats of Perplexity Evaluation</strong></p>
+<ul>
+<li><strong>Trust in model provider</strong>: When running a leaderboard for perplexity, the evaluator needs to trust that the model provider is correctly computing probabilities that sum to one. If the model has a bug or intentionally misreports probabilities, the perplexity score can be misleading.</li>
+<li><strong>Perplexity maximalist view</strong>:<ul>
+<li>If the true data distribution is $T$ and the model is $P$, the best possible perplexity is the entropy of $T$, achieved when $P=T$.</li>
+<li>If a model achieves $P=T$, it has effectively "solved" all tasks and reached AGI.</li>
+<li><strong>Caveat</strong>: Pushing down perplexity might not be the most efficient way to reach AGI, as it might involve optimizing for parts of the distribution that don't matter for specific tasks.</li>
+</ul>
+</li>
+</ul>
 <p>[30:00] <strong>Things That Are Spiritually Perplexity</strong>
-Several tasks resemble perplexity but are not identical:
--   <strong>Cloze tasks (LAMBADA)</strong>: Given a context, the model predicts a missing word. These tasks often require long-range context and have been largely "saturated" by modern language models.
--   <strong>Common sense reasoning (HellaSwag)</strong>: Given a sentence, the model chooses the most plausible completion from several options. This is essentially measuring the likelihood of different continuations.</p>
+Several tasks resemble perplexity but are not identical:</p>
+<ul>
+<li><strong>Cloze tasks (LAMBADA)</strong>: Given a context, the model predicts a missing word. These tasks often require long-range context and have been largely "saturated" by modern language models.</li>
+<li><strong>Common sense reasoning (HellaSwag)</strong>: Given a sentence, the model chooses the most plausible completion from several options. This is essentially measuring the likelihood of different continuations.</li>
+</ul>
 <p>These tasks are effectively solved by models that are good at perplexity, as they fundamentally test the model's ability to predict the next token or sequence.</p>
 <p>[31:15] <strong>Train-Test Overlap in "Spiritually Perplexity" Tasks</strong>
 A common issue in these tasks is train-test overlap. For example, HellaSwag data was mined from ActivityNet and WikiHow. If the training data for a model includes content from WikiHow, then the model might perform well on HellaSwag not due to true reasoning but due to memorization. Researchers typically try to decontaminate datasets, but near-duplicates or paraphrases can still exist.</p>
 <hr />
 <p>[32:00] <strong>Knowledge Benchmarks</strong>
 These benchmarks assess a model's factual knowledge and understanding across various domains.</p>
-<p>[32:50] <strong>MMLU (Massive Multitask Language Understanding)</strong>
--   <strong>Description</strong>: A multiple-choice question answering benchmark covering 57 subjects (e.g., math, US history, law, morality).
--   <strong>Origin</strong>: Introduced in 2020 (Hendrycks et al.) shortly after GPT-3's release.
--   <strong>Data</strong>: Questions collected from graduate/undergraduate students and freely available online sources.
--   <strong>Purpose</strong>: Primarily tests knowledge, not language understanding (as the lecturer argues, based on personal experience).
--   <strong>Evaluation</strong>: Originally evaluated GPT-3 using few-shot prompting (providing examples of questions and answers in the prompt).
-    -   <strong>Few-shot prompting</strong>: A simple instruction, followed by examples demonstrating the desired format, then the final question.
-    -   <strong>Impact</strong>: This was crucial before instruction tuning, as models would often generate irrelevant responses without examples.
--   <strong>Helm MMLU</strong>: The Helm framework provides a leaderboard for MMLU, allowing users to inspect individual predictions and model performance across subjects.
-    -   <strong>Prompting strategy</strong>: Helm uses a standardized prompt strategy (e.g., 5-shot) which might yield lower scores than highly optimized prompts (e.g., using chain-of-thought or ensembling).
-    -   <strong>Interpretation</strong>: A high MMLU score from a base model (trained without specific instruction tuning) suggests strong general intelligence, as it indicates the model has learned a vast amount of world knowledge without explicit instruction.</p>
-<p>[47:00] <strong>MMLU-Pro</strong>
--   <strong>Description</strong>: A more robust and challenging version of MMLU (Wang et al., 2024).
--   <strong>Improvements</strong>:
-    -   Removed noisy/trivial questions from the original MMLU.
-    -   Expanded from 4 choices to 10 choices, making guessing harder.
-    -   Evaluated using chain-of-thought (CoT) prompting, which gives models more "thinking" time and often improves accuracy.
--   <strong>Impact</strong>: MMLU-Pro scores are generally lower than MMLU, indicating that models are not yet saturated on this harder benchmark. It's becoming a new standard for evaluating frontier models.</p>
-<p>[54:00] <strong>GPQA (Graduate-Level Google-Proof Q&amp;A)</strong>
--   <strong>Description</strong>: A challenging benchmark of multiple-choice questions written by PhD contractors from Upwork (Rein et al., 2023).
--   <strong>Difficulty</strong>: Questions are at a PhD level in biology, physics, and chemistry.
--   <strong>Validation Process</strong>: An elaborate process involving question writers, expert validators (who provide feedback and explanations), and non-expert validators (who spend significant time trying to answer, even with Google).
--   <strong>Results</strong>: Experts achieve ~65% accuracy. Non-experts (even with Google) achieve ~30% accuracy. GPT-4 achieved 39% accuracy at the time of release.
--   <strong>Interpretation</strong>: The "Google-proof" aspect means that even with extensive web search, non-experts struggle to answer, indicating the questions require deep understanding, not just information retrieval.
--   <strong>Helm GPQA</strong>: The Helm leaderboard shows that current frontier models (e.g., 03) achieve ~75% accuracy with CoT, demonstrating significant progress since GPQA's release.</p>
-<p>[1:01:00] <strong>Humanity's Last Exam (HLE)</strong>
--   <strong>Description</strong>: A multimodal, multi-subject, multiple-choice + short-answer benchmark (Phan et al., 2025).
--   <strong>Scale</strong>: 2500 questions across 100 subjects.
--   <strong>Purpose</strong>: Designed to be the "final closed-ended academic benchmark at the frontier of human knowledge," aiming to push the limits of language models.
--   <strong>Data Creation</strong>: Involved a complex process:
-    1.  Awarded \$500K prize pool + co-authorship to question creators.
-    2.  LLMs were used to filter out "too easy" questions.
-    3.  Multiple stages of expert review and refinement.
--   <strong>Results</strong>: Current frontier models (e.g., 03) achieve ~20% accuracy on HLE, indicating it's still a very challenging benchmark.</p>
+<p>[32:50] <strong>MMLU (Massive Multitask Language Understanding)</strong></p>
+<ul>
+<li><strong>Description</strong>: A multiple-choice question answering benchmark covering 57 subjects (e.g., math, US history, law, morality).</li>
+<li><strong>Origin</strong>: Introduced in 2020 (Hendrycks et al.) shortly after GPT-3's release.</li>
+<li><strong>Data</strong>: Questions collected from graduate/undergraduate students and freely available online sources.</li>
+<li><strong>Purpose</strong>: Primarily tests knowledge, not language understanding (as the lecturer argues, based on personal experience).</li>
+<li><strong>Evaluation</strong>: Originally evaluated GPT-3 using few-shot prompting (providing examples of questions and answers in the prompt).<ul>
+<li><strong>Few-shot prompting</strong>: A simple instruction, followed by examples demonstrating the desired format, then the final question.</li>
+<li><strong>Impact</strong>: This was crucial before instruction tuning, as models would often generate irrelevant responses without examples.</li>
+</ul>
+</li>
+<li><strong>Helm MMLU</strong>: The Helm framework provides a leaderboard for MMLU, allowing users to inspect individual predictions and model performance across subjects.<ul>
+<li><strong>Prompting strategy</strong>: Helm uses a standardized prompt strategy (e.g., 5-shot) which might yield lower scores than highly optimized prompts (e.g., using chain-of-thought or ensembling).</li>
+<li><strong>Interpretation</strong>: A high MMLU score from a base model (trained without specific instruction tuning) suggests strong general intelligence, as it indicates the model has learned a vast amount of world knowledge without explicit instruction.</li>
+</ul>
+</li>
+</ul>
+<p>[47:00] <strong>MMLU-Pro</strong></p>
+<ul>
+<li><strong>Description</strong>: A more robust and challenging version of MMLU (Wang et al., 2024).</li>
+<li><strong>Improvements</strong>:<ul>
+<li>Removed noisy/trivial questions from the original MMLU.</li>
+<li>Expanded from 4 choices to 10 choices, making guessing harder.</li>
+<li>Evaluated using chain-of-thought (CoT) prompting, which gives models more "thinking" time and often improves accuracy.</li>
+</ul>
+</li>
+<li><strong>Impact</strong>: MMLU-Pro scores are generally lower than MMLU, indicating that models are not yet saturated on this harder benchmark. It's becoming a new standard for evaluating frontier models.</li>
+</ul>
+<p>[54:00] <strong>GPQA (Graduate-Level Google-Proof Q&amp;A)</strong></p>
+<ul>
+<li><strong>Description</strong>: A challenging benchmark of multiple-choice questions written by PhD contractors from Upwork (Rein et al., 2023).</li>
+<li><strong>Difficulty</strong>: Questions are at a PhD level in biology, physics, and chemistry.</li>
+<li><strong>Validation Process</strong>: An elaborate process involving question writers, expert validators (who provide feedback and explanations), and non-expert validators (who spend significant time trying to answer, even with Google).</li>
+<li><strong>Results</strong>: Experts achieve ~65% accuracy. Non-experts (even with Google) achieve ~30% accuracy. GPT-4 achieved 39% accuracy at the time of release.</li>
+<li><strong>Interpretation</strong>: The "Google-proof" aspect means that even with extensive web search, non-experts struggle to answer, indicating the questions require deep understanding, not just information retrieval.</li>
+<li><strong>Helm GPQA</strong>: The Helm leaderboard shows that current frontier models (e.g., 03) achieve ~75% accuracy with CoT, demonstrating significant progress since GPQA's release.</li>
+</ul>
+<p>[1:01:00] <strong>Humanity's Last Exam (HLE)</strong></p>
+<ul>
+<li><strong>Description</strong>: A multimodal, multi-subject, multiple-choice + short-answer benchmark (Phan et al., 2025).</li>
+<li><strong>Scale</strong>: 2500 questions across 100 subjects.</li>
+<li><strong>Purpose</strong>: Designed to be the "final closed-ended academic benchmark at the frontier of human knowledge," aiming to push the limits of language models.</li>
+<li><strong>Data Creation</strong>: Involved a complex process:<ol>
+<li>Awarded \$500K prize pool + co-authorship to question creators.</li>
+<li>LLMs were used to filter out "too easy" questions.</li>
+<li>Multiple stages of expert review and refinement.</li>
+</ol>
+</li>
+<li><strong>Results</strong>: Current frontier models (e.g., 03) achieve ~20% accuracy on HLE, indicating it's still a very challenging benchmark.</li>
+</ul>
 <hr />
 <p>[1:04:40] <strong>Instruction-Following Benchmarks</strong>
 These benchmarks evaluate a model's ability to follow instructions, a capability popularized by ChatGPT. The challenge is to evaluate open-ended responses.</p>
-<p>[1:05:00] <strong>Chatbot Arena</strong>
--   <strong>Description</strong>: An open platform for evaluating LLMs by human preference (Chiang et al., 2024).
--   <strong>How it works</strong>:
-    1.  Random internet users type a prompt.
-    2.  They receive responses from two anonymous models.
-    3.  Users rate which response is better.
-    4.  Elo scores are computed based on pairwise comparisons, ranking models.
--   <strong>Features</strong>: Live (not static) inputs, can accommodate new models dynamically.
--   <strong>Challenges</strong>:
-    -   <strong>Protocol issues</strong>: The "leaderboard illusion" (paper by Zheng et al., 2023) highlights that some model providers might game the system (e.g., multiple submissions, privileged access).
-    -   <strong>Input distribution</strong>: The prompts come from random internet users, which might not represent a desired or controlled distribution.
-    -   <strong>Human bias</strong>: Human preferences can be subjective and inconsistent.</p>
-<p>[1:08:00] <strong>IFEval (Instruction-Following Eval)</strong>
--   <strong>Description</strong>: A benchmark that narrowly tests a model's ability to follow constraints (Zhou et al., 2023).
--   <strong>How it works</strong>:
-    1.  Define various constraints (e.g., keywords to include/exclude, length limits, formatting rules like number of paragraphs or JSON).
-    2.  Add these synthetic constraints to instructions for open-ended generation tasks.
-    3.  Automatically verify if the model's response adheres to the constraints using a simple script.
--   <strong>Purpose</strong>: Tests the model's "compliance" rather than the semantic quality of the response.
--   <strong>Challenges</strong>:
-    -   <strong>Partial evaluation</strong>: It only checks constraint adherence, not the overall quality or meaning of the generated text.
-    -   <strong>Gameable</strong>: Models can be optimized to strictly follow constraints without necessarily improving semantic quality.</p>
-<p>[1:10:00] <strong>AlpacaEval</strong>
--   <strong>Description</strong>: An automatic evaluator for instruction-following language models (Dubois et al., 2023).
--   <strong>How it works</strong>:
-    1.  Uses 805 instructions from various sources.
-    2.  Metric: Win rate against GPT-4 preview, judged by GPT-4 itself.
--   <strong>Challenges</strong>:
-    -   <strong>Potential bias</strong>: Using an LLM (GPT-4) as a judge introduces potential bias towards responses that GPT-4 itself would prefer.
-    -   <strong>Gaming</strong>: Early versions were gamed by models generating longer responses, which GPT-4 tended to prefer. This was corrected with a "length-corrected" win rate.
--   <strong>Correlation</strong>: AlpacaEval's win rates correlate well with Chatbot Arena, suggesting both provide similar information about model performance.</p>
-<p>[1:11:00] <strong>WildBench</strong>
--   <strong>Description</strong>: Another benchmark using LLMs as judges (Lin et al., 2024).
--   <strong>How it works</strong>:
-    1.  Sources 1024 examples from 1M human-chatbot conversations.
-    2.  Uses GPT-4 Turbo as a judge with a checklist (like CoT for judging) + GPT-4 as a judge.
-    3.  Correlates well (0.95) with Chatbot Arena.</p>
+<p>[1:05:00] <strong>Chatbot Arena</strong></p>
+<ul>
+<li><strong>Description</strong>: An open platform for evaluating LLMs by human preference (Chiang et al., 2024).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Random internet users type a prompt.</li>
+<li>They receive responses from two anonymous models.</li>
+<li>Users rate which response is better.</li>
+<li>Elo scores are computed based on pairwise comparisons, ranking models.</li>
+</ol>
+</li>
+<li><strong>Features</strong>: Live (not static) inputs, can accommodate new models dynamically.</li>
+<li><strong>Challenges</strong>:<ul>
+<li><strong>Protocol issues</strong>: The "leaderboard illusion" (paper by Zheng et al., 2023) highlights that some model providers might game the system (e.g., multiple submissions, privileged access).</li>
+<li><strong>Input distribution</strong>: The prompts come from random internet users, which might not represent a desired or controlled distribution.</li>
+<li><strong>Human bias</strong>: Human preferences can be subjective and inconsistent.</li>
+</ul>
+</li>
+</ul>
+<p>[1:08:00] <strong>IFEval (Instruction-Following Eval)</strong></p>
+<ul>
+<li><strong>Description</strong>: A benchmark that narrowly tests a model's ability to follow constraints (Zhou et al., 2023).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Define various constraints (e.g., keywords to include/exclude, length limits, formatting rules like number of paragraphs or JSON).</li>
+<li>Add these synthetic constraints to instructions for open-ended generation tasks.</li>
+<li>Automatically verify if the model's response adheres to the constraints using a simple script.</li>
+</ol>
+</li>
+<li><strong>Purpose</strong>: Tests the model's "compliance" rather than the semantic quality of the response.</li>
+<li><strong>Challenges</strong>:<ul>
+<li><strong>Partial evaluation</strong>: It only checks constraint adherence, not the overall quality or meaning of the generated text.</li>
+<li><strong>Gameable</strong>: Models can be optimized to strictly follow constraints without necessarily improving semantic quality.</li>
+</ul>
+</li>
+</ul>
+<p>[1:10:00] <strong>AlpacaEval</strong></p>
+<ul>
+<li><strong>Description</strong>: An automatic evaluator for instruction-following language models (Dubois et al., 2023).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Uses 805 instructions from various sources.</li>
+<li>Metric: Win rate against GPT-4 preview, judged by GPT-4 itself.</li>
+</ol>
+</li>
+<li><strong>Challenges</strong>:<ul>
+<li><strong>Potential bias</strong>: Using an LLM (GPT-4) as a judge introduces potential bias towards responses that GPT-4 itself would prefer.</li>
+<li><strong>Gaming</strong>: Early versions were gamed by models generating longer responses, which GPT-4 tended to prefer. This was corrected with a "length-corrected" win rate.</li>
+</ul>
+</li>
+<li><strong>Correlation</strong>: AlpacaEval's win rates correlate well with Chatbot Arena, suggesting both provide similar information about model performance.</li>
+</ul>
+<p>[1:11:00] <strong>WildBench</strong></p>
+<ul>
+<li><strong>Description</strong>: Another benchmark using LLMs as judges (Lin et al., 2024).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Sources 1024 examples from 1M human-chatbot conversations.</li>
+<li>Uses GPT-4 Turbo as a judge with a checklist (like CoT for judging) + GPT-4 as a judge.</li>
+<li>Correlates well (0.95) with Chatbot Arena.</li>
+</ol>
+</li>
+</ul>
 <hr />
 <p>[1:12:00] <strong>Agent Benchmarks</strong>
 These benchmarks evaluate models that require tool use (e.g., running code, accessing the internet) and involve iterating over a period of time. An agent consists of a language model and an "agent scaffolding" (programmatic logic for deciding how the LM is used).</p>
-<p>[1:12:40] <strong>SWEBench</strong>
--   <strong>Description</strong>: Evaluates agents on software engineering tasks (Jimenez et al., 2023).
--   <strong>How it works</strong>:
-    1.  Given 2294 tasks across 12 Python repositories.
-    2.  Given a codebase and a GitHub issue description.
-    3.  The agent must submit a Pull Request (PR) that resolves the issue.
-    4.  <strong>Evaluation metric</strong>: Unit tests must pass.
--   <strong>Results</strong>: Current agent accuracies are still relatively low (e.g., sub-20% for passing any medal threshold), but improving.</p>
-<p>[1:13:20] <strong>CyBench</strong>
--   <strong>Description</strong>: A framework for evaluating cybersecurity capabilities (Chan et al., 2024).
--   <strong>How it works</strong>:
-    1.  Agents participate in Capture The Flag (CTF) competitions.
-    2.  The agent has access to a server and must hack into it to retrieve a secret key.
-    3.  <strong>Agent architecture</strong>: A standard "Act-Execute-Update" loop where the LM thinks, generates commands, executes them in an environment, observes the results, and updates its memory.
--   <strong>Results</strong>: Accuracies are still low (e.g., ~20% for 03-mini), but models are showing progress in solving tasks that took humans significant time (e.g., 42 minutes for 03-mini).</p>
-<p>[1:14:00] <strong>MLEBench</strong>
--   <strong>Description</strong>: Evaluates agents on Kaggle-like competitions (Chan et al., 2024).
--   <strong>How it works</strong>:
-    1.  75 Kaggle competitions.
-    2.  The agent is given a competition description and a dataset.
-    3.  The agent must write code, train a model, debug, tune hyperparameters, and submit a solution.
-    4.  <strong>Evaluation metric</strong>: Kaggle's scoring system (e.g., accuracy, medals).
--   <strong>Results</strong>: Accuracies are still low (e.g., sub-20% for achieving any medal), but improving.</p>
+<p>[1:12:40] <strong>SWEBench</strong></p>
+<ul>
+<li><strong>Description</strong>: Evaluates agents on software engineering tasks (Jimenez et al., 2023).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Given 2294 tasks across 12 Python repositories.</li>
+<li>Given a codebase and a GitHub issue description.</li>
+<li>The agent must submit a Pull Request (PR) that resolves the issue.</li>
+<li><strong>Evaluation metric</strong>: Unit tests must pass.</li>
+</ol>
+</li>
+<li><strong>Results</strong>: Current agent accuracies are still relatively low (e.g., sub-20% for passing any medal threshold), but improving.</li>
+</ul>
+<p>[1:13:20] <strong>CyBench</strong></p>
+<ul>
+<li><strong>Description</strong>: A framework for evaluating cybersecurity capabilities (Chan et al., 2024).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Agents participate in Capture The Flag (CTF) competitions.</li>
+<li>The agent has access to a server and must hack into it to retrieve a secret key.</li>
+<li><strong>Agent architecture</strong>: A standard "Act-Execute-Update" loop where the LM thinks, generates commands, executes them in an environment, observes the results, and updates its memory.</li>
+</ol>
+</li>
+<li><strong>Results</strong>: Accuracies are still low (e.g., ~20% for 03-mini), but models are showing progress in solving tasks that took humans significant time (e.g., 42 minutes for 03-mini).</li>
+</ul>
+<p>[1:14:00] <strong>MLEBench</strong></p>
+<ul>
+<li><strong>Description</strong>: Evaluates agents on Kaggle-like competitions (Chan et al., 2024).</li>
+<li><strong>How it works</strong>:<ol>
+<li>75 Kaggle competitions.</li>
+<li>The agent is given a competition description and a dataset.</li>
+<li>The agent must write code, train a model, debug, tune hyperparameters, and submit a solution.</li>
+<li><strong>Evaluation metric</strong>: Kaggle's scoring system (e.g., accuracy, medals).</li>
+</ol>
+</li>
+<li><strong>Results</strong>: Accuracies are still low (e.g., sub-20% for achieving any medal), but improving.</li>
+</ul>
 <hr />
 <p>[1:14:30] <strong>Pure Reasoning Benchmarks</strong>
 These benchmarks aim to isolate and measure pure reasoning ability, distinct from linguistic understanding or world knowledge.</p>
-<p>[1:14:50] <strong>ARC-AGI (Abstract Reasoning Corpus - AGI)</strong>
--   <strong>Description</strong>: A challenge introduced by François Chollet (2019) to capture a "more pure form of intelligence" that isn't just memorizing facts.
--   <strong>How it works</strong>:
-    1.  Models are given visual patterns (grids of colored cells) and must infer the underlying rule to complete new patterns.
-    2.  No language description is provided.
--   <strong>Purpose</strong>: Designed to be easy for humans but hard for current AI, testing abstract reasoning and generalization.
--   <strong>Results</strong>: Traditionally, LLMs performed very poorly on these tasks (e.g., GPT-4o at ~0% accuracy). However, recent models like 03 are starting to show significant progress, achieving ~80% accuracy on some tasks.
--   <strong>Cost</strong>: Solving these tasks can be computationally expensive (e.g., hundreds of dollars per task for 03).</p>
+<p>[1:14:50] <strong>ARC-AGI (Abstract Reasoning Corpus - AGI)</strong></p>
+<ul>
+<li><strong>Description</strong>: A challenge introduced by François Chollet (2019) to capture a "more pure form of intelligence" that isn't just memorizing facts.</li>
+<li><strong>How it works</strong>:<ol>
+<li>Models are given visual patterns (grids of colored cells) and must infer the underlying rule to complete new patterns.</li>
+<li>No language description is provided.</li>
+</ol>
+</li>
+<li><strong>Purpose</strong>: Designed to be easy for humans but hard for current AI, testing abstract reasoning and generalization.</li>
+<li><strong>Results</strong>: Traditionally, LLMs performed very poorly on these tasks (e.g., GPT-4o at ~0% accuracy). However, recent models like 03 are starting to show significant progress, achieving ~80% accuracy on some tasks.</li>
+<li><strong>Cost</strong>: Solving these tasks can be computationally expensive (e.g., hundreds of dollars per task for 03).</li>
+</ul>
 <hr />
 <p>[1:15:50] <strong>Safety Benchmarks</strong>
 These benchmarks assess the safety and ethical behavior of language models.</p>
-<p>[1:16:00] <strong>What does safety mean for AI?</strong>
--   <strong>Contextual</strong>: Safety is strongly contextual, depending on politics, law, social norms, and varies across countries.
--   <strong>Beyond refusal</strong>: Safety is broader than just refusal (e.g., reducing hallucinations in medical settings makes systems safer).
--   <strong>Capabilities vs. Propensity</strong>:
-    -   <strong>Capabilities</strong>: The ability of a system to do something (e.g., cause harm).
-    -   <strong>Propensity</strong>: The likelihood of a system to do something (e.g., refuse to cause harm).
-    -   For API models, propensity matters (if it refuses, it's fine).
-    -   For open-weight models, capabilities matter more, as fine-tuning can easily bypass safety mechanisms.
--   <strong>Dual-use issues</strong>: Cybersecurity agents (like CyBench) can be used to hack systems (malicious use) or to perform penetration testing (beneficial use).</p>
-<p>[1:16:40] <strong>HarmBench</strong>
--   <strong>Description</strong>: A benchmark for evaluating harmful behaviors that violate laws or norms (Mazeika et al., 2024).
--   <strong>How it works</strong>:
-    1.  Identifies 510 harmful behaviors.
-    2.  Prompts LLMs to perform these behaviors.
-    3.  Evaluates if the model complies or refuses.
--   <strong>Results</strong>: Some models (e.g., 03) show high refusal rates (~90%), while others (e.g., DeepSeek) are more compliant.</p>
-<p>[1:17:20] <strong>AIR-Bench</strong>
--   <strong>Description</strong>: A benchmark based on regulatory frameworks and company policies (Zeng et al., 2024).
--   <strong>How it works</strong>:
-    1.  Builds a taxonomy of 314 risk categories (e.g., legal, social, technical risks).
-    2.  Evaluates LLMs against prompts related to these risks.
--   <strong>Purpose</strong>: Aims to ground safety evaluation in real-world regulatory and policy contexts.</p>
-<p>[1:18:00] <strong>Jailbreaking</strong>
--   <strong>Description</strong>: The process of bypassing a model's safety mechanisms to elicit harmful responses.
--   <strong>Challenge</strong>: LLMs are trained to refuse harmful instructions, but clever prompting techniques can bypass these safeguards.
--   <strong>Research</strong>: Papers like Zou et al. (2023) developed "Greedy Coordinate Gradient" (GCG) to automatically optimize prompts to bypass safety. This technique works on open-weight models (Llama) and transfers to closed models (GPT-4).
--   <strong>Implications</strong>: The ability to jailbreak models highlights the ongoing cat-and-mouse game between model developers and malicious actors, and the need for robust safety interventions.</p>
-<p>[1:19:00] <strong>Pre-deployment Testing</strong>
--   <strong>Collaborative effort</strong>: US Safety Institute + UK AI Safety Institute + other countries are working together.
--   <strong>Protocol</strong>: Companies (e.g., Anthropic, OpenAI) voluntarily give early access to their models (pre-release) to safety institutes.
--   <strong>Process</strong>: Institutes run safety evaluations, generate reports, and provide feedback to the companies to inform deployment.
--   <strong>Status</strong>: This is a voluntary, non-binding protocol for now.</p>
-<hr />
-<p>[1:19:30] <strong>Realism</strong>
--   <strong>Challenge</strong>: Most existing benchmarks (e.g., MMLU) are far from real-world use cases.
--   <strong>Live traffic</strong>: While real-life traffic provides realistic inputs, it often contains "garbage" (spammy, non-serious utterances) that are not the target distribution for evaluation.
--   <strong>Types of prompts</strong>:
-    -   <strong>Quizzing</strong>: User knows the answer and is testing the system (standardized exams).
-    -   <strong>Asking</strong>: User doesn't know the answer and is trying to use the system to get it.
--   <strong>Asking prompts</strong>: More realistic and produces value for the user. Standardized exams are not realistic but can be helpful for certain types of evaluation.</p>
-<p>[1:20:00] <strong>Clio from Anthropic</strong>
--   <strong>Description</strong>: Uses language models to analyze real user data (Tamkin et al., 2024).
--   <strong>How it works</strong>:
-    1.  Takes real user conversations with LLMs.
-    2.  Uses LLMs to cluster these conversations and identify patterns of use.
--   <strong>Purpose</strong>: To understand how people are actually using LLMs in the wild, including common use cases (e.g., coding, education) and safety-related issues.</p>
-<p>[1:20:20] <strong>MedHelm</strong>
--   <strong>Description</strong>: A project focused on medical benchmarks (Tamkin et al., 2024).
--   <strong>How it works</strong>:
-    1.  Identifies 121 clinical tasks sourced from 29 clinicians.
-    2.  Creates a wide suite of benchmarks based on private and public medical datasets.
--   <strong>Challenge</strong>: Realism and privacy are often at odds, as realistic medical data is sensitive and cannot be publicly hosted.</p>
-<hr />
-<p>[1:20:50] <strong>Validity</strong>
--   <strong>Core question</strong>: How do we know our evaluations are valid?
--   <strong>Train-test overlap</strong>:
-    -   <strong>Machine Learning 101</strong>: Don't train on your test set.
-    -   <strong>Pre-foundation models</strong>: Benchmarks like ImageNet and SQuAD had well-defined train-test splits.
-    -   <strong>Nowadays</strong>: Models are trained on the internet, and developers don't always disclose their training data, making it difficult to verify train-test separation.
-    -   <strong>Route 1: Infer train-test overlap</strong>: Researchers are developing methods to infer if a model was trained on a test set by observing its behavior (e.g., exploiting exchangeability in the benchmark, Oren et al., 2023).
-    -   <strong>Route 2: Encourage reporting norms</strong>: Language model developers should report train-test overlap (Zhang et al., 2024), including confidence intervals.</p>
+<p>[1:16:00] <strong>What does safety mean for AI?</strong></p>
 <ul>
-<li><strong>Dataset quality</strong>: Many benchmarks have quality issues. For example, SWEBench had errors, and many math benchmarks contain noise or mislabeled data. This can lead to misleading performance metrics.</li>
+<li><strong>Contextual</strong>: Safety is strongly contextual, depending on politics, law, social norms, and varies across countries.</li>
+<li><strong>Beyond refusal</strong>: Safety is broader than just refusal (e.g., reducing hallucinations in medical settings makes systems safer).</li>
+<li><strong>Capabilities vs. Propensity</strong>:<ul>
+<li><strong>Capabilities</strong>: The ability of a system to do something (e.g., cause harm).</li>
+<li><strong>Propensity</strong>: The likelihood of a system to do something (e.g., refuse to cause harm).</li>
+<li>For API models, propensity matters (if it refuses, it's fine).</li>
+<li>For open-weight models, capabilities matter more, as fine-tuning can easily bypass safety mechanisms.</li>
+</ul>
+</li>
+<li><strong>Dual-use issues</strong>: Cybersecurity agents (like CyBench) can be used to hack systems (malicious use) or to perform penetration testing (beneficial use).</li>
+</ul>
+<p>[1:16:40] <strong>HarmBench</strong></p>
+<ul>
+<li><strong>Description</strong>: A benchmark for evaluating harmful behaviors that violate laws or norms (Mazeika et al., 2024).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Identifies 510 harmful behaviors.</li>
+<li>Prompts LLMs to perform these behaviors.</li>
+<li>Evaluates if the model complies or refuses.</li>
+</ol>
+</li>
+<li><strong>Results</strong>: Some models (e.g., 03) show high refusal rates (~90%), while others (e.g., DeepSeek) are more compliant.</li>
+</ul>
+<p>[1:17:20] <strong>AIR-Bench</strong></p>
+<ul>
+<li><strong>Description</strong>: A benchmark based on regulatory frameworks and company policies (Zeng et al., 2024).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Builds a taxonomy of 314 risk categories (e.g., legal, social, technical risks).</li>
+<li>Evaluates LLMs against prompts related to these risks.</li>
+</ol>
+</li>
+<li><strong>Purpose</strong>: Aims to ground safety evaluation in real-world regulatory and policy contexts.</li>
+</ul>
+<p>[1:18:00] <strong>Jailbreaking</strong></p>
+<ul>
+<li><strong>Description</strong>: The process of bypassing a model's safety mechanisms to elicit harmful responses.</li>
+<li><strong>Challenge</strong>: LLMs are trained to refuse harmful instructions, but clever prompting techniques can bypass these safeguards.</li>
+<li><strong>Research</strong>: Papers like Zou et al. (2023) developed "Greedy Coordinate Gradient" (GCG) to automatically optimize prompts to bypass safety. This technique works on open-weight models (Llama) and transfers to closed models (GPT-4).</li>
+<li><strong>Implications</strong>: The ability to jailbreak models highlights the ongoing cat-and-mouse game between model developers and malicious actors, and the need for robust safety interventions.</li>
+</ul>
+<p>[1:19:00] <strong>Pre-deployment Testing</strong></p>
+<ul>
+<li><strong>Collaborative effort</strong>: US Safety Institute + UK AI Safety Institute + other countries are working together.</li>
+<li><strong>Protocol</strong>: Companies (e.g., Anthropic, OpenAI) voluntarily give early access to their models (pre-release) to safety institutes.</li>
+<li><strong>Process</strong>: Institutes run safety evaluations, generate reports, and provide feedback to the companies to inform deployment.</li>
+<li><strong>Status</strong>: This is a voluntary, non-binding protocol for now.</li>
 </ul>
 <hr />
-<p>[1:21:40] <strong>What Are We Even Evaluating?</strong>
--   <strong>Fundamental question</strong>: What are the rules of the game?
--   <strong>Shift in focus</strong>: Previously, we evaluated <em>methods</em> (e.g., new architectures, learning algorithms) using standardized train-test splits.
--   <strong>Today</strong>: We are evaluating <em>systems</em> (e.g., LLMs with various prompting strategies, tool use, agentic scaffolding) where "anything goes."
--   <strong>Exceptions</strong>: Some competitions (e.g., nanoGPT speedrun, DataComp) still focus on specific, fixed rules to encourage algorithmic innovation.
--   <strong>Conclusion</strong>: It's crucial to define the rules of the game for any evaluation and to clearly understand the purpose of the evaluation.</p>
+<p>[1:19:30] <strong>Realism</strong></p>
+<ul>
+<li><strong>Challenge</strong>: Most existing benchmarks (e.g., MMLU) are far from real-world use cases.</li>
+<li><strong>Live traffic</strong>: While real-life traffic provides realistic inputs, it often contains "garbage" (spammy, non-serious utterances) that are not the target distribution for evaluation.</li>
+<li><strong>Types of prompts</strong>:<ul>
+<li><strong>Quizzing</strong>: User knows the answer and is testing the system (standardized exams).</li>
+<li><strong>Asking</strong>: User doesn't know the answer and is trying to use the system to get it.</li>
+</ul>
+</li>
+<li><strong>Asking prompts</strong>: More realistic and produces value for the user. Standardized exams are not realistic but can be helpful for certain types of evaluation.</li>
+</ul>
+<p>[1:20:00] <strong>Clio from Anthropic</strong></p>
+<ul>
+<li><strong>Description</strong>: Uses language models to analyze real user data (Tamkin et al., 2024).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Takes real user conversations with LLMs.</li>
+<li>Uses LLMs to cluster these conversations and identify patterns of use.</li>
+</ol>
+</li>
+<li><strong>Purpose</strong>: To understand how people are actually using LLMs in the wild, including common use cases (e.g., coding, education) and safety-related issues.</li>
+</ul>
+<p>[1:20:20] <strong>MedHelm</strong></p>
+<ul>
+<li><strong>Description</strong>: A project focused on medical benchmarks (Tamkin et al., 2024).</li>
+<li><strong>How it works</strong>:<ol>
+<li>Identifies 121 clinical tasks sourced from 29 clinicians.</li>
+<li>Creates a wide suite of benchmarks based on private and public medical datasets.</li>
+</ol>
+</li>
+<li><strong>Challenge</strong>: Realism and privacy are often at odds, as realistic medical data is sensitive and cannot be publicly hosted.</li>
+</ul>
 <hr />
-<p><strong>Practical takeaways:</strong>
-- <strong>Context is King</strong>: The "goodness" of a model is relative to the specific use case and question being asked. Avoid one-size-fits-all evaluation.
-- <strong>Beyond Single Metrics</strong>: Relying solely on perplexity or simple accuracy can be misleading. Consider a broader set of metrics, including cost, error types, and human preferences.
-- <strong>Beware of Train-Test Contamination</strong>: With models trained on vast internet data, ensuring true generalization is challenging. Always question the source and overlap of evaluation data.
-- <strong>Transparency and Reproducibility</strong>: Clear protocols for evaluation, including prompt strategies, model access, and data handling, are essential for valid comparisons.
-- <strong>Embrace Diverse Evaluation Methods</strong>: Combine traditional benchmarks with human preference, agentic tasks, and safety evaluations to get a holistic view of model capabilities and risks.</p>
-<p><strong>Open questions / things to remember:</strong>
-- How to design robust benchmarks that are not easily gameable, especially for open-ended generation.
-- How to effectively evaluate agentic systems that involve complex interactions with tools and environments.
-- How to define and measure "safety" in AI in a way that is both comprehensive and actionable, considering its contextual nature.
-- The tension between realism (evaluating on real-world data) and privacy (protecting sensitive user information).
-- The ongoing debate about whether current evaluation methods truly capture "intelligence" or merely test memorization and pattern recognition.</p><div class="pager"><a href="lec11.html">← Lec 11</a><a href="lec13.html" style="text-align:right">Lec 13 →</a></div></main></div></body></html>
+<p>[1:20:50] <strong>Validity</strong></p>
+<ul>
+<li><strong>Core question</strong>: How do we know our evaluations are valid?</li>
+<li>
+<p><strong>Train-test overlap</strong>:</p>
+<ul>
+<li><strong>Machine Learning 101</strong>: Don't train on your test set.</li>
+<li><strong>Pre-foundation models</strong>: Benchmarks like ImageNet and SQuAD had well-defined train-test splits.</li>
+<li><strong>Nowadays</strong>: Models are trained on the internet, and developers don't always disclose their training data, making it difficult to verify train-test separation.</li>
+<li><strong>Route 1: Infer train-test overlap</strong>: Researchers are developing methods to infer if a model was trained on a test set by observing its behavior (e.g., exploiting exchangeability in the benchmark, Oren et al., 2023).</li>
+<li><strong>Route 2: Encourage reporting norms</strong>: Language model developers should report train-test overlap (Zhang et al., 2024), including confidence intervals.</li>
+</ul>
+</li>
+<li>
+<p><strong>Dataset quality</strong>: Many benchmarks have quality issues. For example, SWEBench had errors, and many math benchmarks contain noise or mislabeled data. This can lead to misleading performance metrics.</p>
+</li>
+</ul>
+<hr />
+<p>[1:21:40] <strong>What Are We Even Evaluating?</strong></p>
+<ul>
+<li><strong>Fundamental question</strong>: What are the rules of the game?</li>
+<li><strong>Shift in focus</strong>: Previously, we evaluated <em>methods</em> (e.g., new architectures, learning algorithms) using standardized train-test splits.</li>
+<li><strong>Today</strong>: We are evaluating <em>systems</em> (e.g., LLMs with various prompting strategies, tool use, agentic scaffolding) where "anything goes."</li>
+<li><strong>Exceptions</strong>: Some competitions (e.g., nanoGPT speedrun, DataComp) still focus on specific, fixed rules to encourage algorithmic innovation.</li>
+<li><strong>Conclusion</strong>: It's crucial to define the rules of the game for any evaluation and to clearly understand the purpose of the evaluation.</li>
+</ul>
+<hr />
+<p><strong>Practical takeaways:</strong></p>
+<ul>
+<li><strong>Context is King</strong>: The "goodness" of a model is relative to the specific use case and question being asked. Avoid one-size-fits-all evaluation.</li>
+<li><strong>Beyond Single Metrics</strong>: Relying solely on perplexity or simple accuracy can be misleading. Consider a broader set of metrics, including cost, error types, and human preferences.</li>
+<li><strong>Beware of Train-Test Contamination</strong>: With models trained on vast internet data, ensuring true generalization is challenging. Always question the source and overlap of evaluation data.</li>
+<li><strong>Transparency and Reproducibility</strong>: Clear protocols for evaluation, including prompt strategies, model access, and data handling, are essential for valid comparisons.</li>
+<li><strong>Embrace Diverse Evaluation Methods</strong>: Combine traditional benchmarks with human preference, agentic tasks, and safety evaluations to get a holistic view of model capabilities and risks.</li>
+</ul>
+<p><strong>Open questions / things to remember:</strong></p>
+<ul>
+<li>How to design robust benchmarks that are not easily gameable, especially for open-ended generation.</li>
+<li>How to effectively evaluate agentic systems that involve complex interactions with tools and environments.</li>
+<li>How to define and measure "safety" in AI in a way that is both comprehensive and actionable, considering its contextual nature.</li>
+<li>The tension between realism (evaluating on real-world data) and privacy (protecting sensitive user information).</li>
+<li>The ongoing debate about whether current evaluation methods truly capture "intelligence" or merely test memorization and pattern recognition.</li>
+</ul><div class="pager"><a href="lec11.html">← Lec 11</a><a href="lec13.html" style="text-align:right">Lec 13 →</a></div></main></div></body></html>

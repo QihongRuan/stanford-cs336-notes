@@ -1,6 +1,7 @@
 ## Lecture 9: Scaling Laws 1
 
 **TL;DR**
+
 * Scaling laws describe how model performance (loss) changes with resources (data, model size, compute) in a predictable, often log-linear, fashion.
 * Historically, scaling laws were studied in statistical learning theory (generalization bounds) and early NLP (data scaling for task performance).
 * Modern scaling laws for LLMs show power-law relationships between test loss and compute, dataset size, or parameters.
@@ -9,6 +10,7 @@
 * While powerful for pre-training objectives (like perplexity), scaling law predictability can be less reliable for downstream tasks.
 
 **Key Concepts**
+
 * Scaling Laws
 * Data Scaling
 * Model Scaling
@@ -34,12 +36,14 @@
 The lecture begins by setting a scenario: imagine you have access to 100,000 H100 GPUs for a month and need to build the best open-source Large Language Model (LLM). We've already covered infrastructure, distributed training, pre-training datasets, and architectures. The question then becomes: how do you make optimal decisions regarding architecture, hyperparameters, and resource allocation to push the frontiers of model performance, rather than just copying existing models?
 
 This is where **scaling laws** come in.
+
 *   **Goal**: Build simple, predictive "laws" for the behavior of language models.
 *   **Approach**: Train small models, learn from their behavior, and extrapolate to larger ones.
 *   **Old (unpleasant) way**: Tune hyperparameters directly on big models, which is computationally expensive.
 *   **New (optimistic) way**: Tune on small models, extrapolate to large ones, saving significant compute.
 
 The lecture will cover:
+
 1.  **History and background of scaling laws**: Contextualizing their origins beyond recent "AGI" hype.
 2.  **Neural (LLM) scaling behaviors**: Empirical results and practical applications.
 
@@ -76,6 +80,7 @@ The earliest paper that resembles modern scaling law analysis is "Learning Curve
 #### [0:05] Early History of Scaling Laws - Data Scaling
 
 Other early works also explored data scaling.
+
 *   **Log-linear scaling with data (Banko and Brill, 2001)**: Studied how NLP system performance scales with data size.
     *   **Observation**: Log-linear relationship between data size (x-axis, log scale) and test accuracy (y-axis).
     *   **Conclusion**: Dramatic performance improvements can be achieved by scaling data. This led to the argument that collecting more data might be more effective than complex algorithm development, a sentiment echoed in modern pre-training.
@@ -83,12 +88,14 @@ Other early works also explored data scaling.
 #### [0:05] Early Tests of Functional Forms
 
 Even in the early 2010s, researchers were investigating the best functional forms for these scaling relationships.
+
 *   **Kolachina et al. (2012)**: Tested various functional forms (e.g., exponential, power-law) to predict model behavior based on training data size.
 *   **Key Relationship**: Model capabilities (y-axis) as a function of data (x-axis).
 
 #### [0:05] Earliest Large-Scale Neural Scaling Work: Hestness et al. 2017
 
 This paper from Baidu (Hestness et al., 2017) is often cited as the earliest large-scale neural scaling work.
+
 *   **Observation**: For tasks like machine translation, speech, and vision, error rates fall as a power law with increasing data.
 *   **Generalization Error Curve**: The paper proposes a conceptual curve for generalization error vs. training data size, identifying three regions:
     1.  **Small Data Region**: Initial phase where performance is close to random guessing ("Best Guess Error").
@@ -98,6 +105,7 @@ This paper from Baidu (Hestness et al., 2017) is often cited as the earliest lar
 #### [0:05] Hestness II: Ahead of its Time
 
 The Hestness et al. (2017) paper also foreshadowed many "new" phenomena discussed in recent years:
+
 *   **"Emergence"**: Noted that small data regimes can be hard to predict because models might suddenly "leave the random region" and show significant improvements.
 *   **Scaling by Compute**: Highlighted that if scaling laws are predictable, then scaling by compute (training larger models for longer) becomes a crucial strategy.
 *   **Speed = Accuracy Trade-off**: Suggested that hardware improvements (e.g., quantization) and distributed training could be used to improve compute throughput, allowing for larger models and better accuracy.
@@ -111,10 +119,12 @@ This section delves into empirical scaling behaviors of LLMs, focusing on data, 
 #### [0:05] Data vs. Performance
 
 **What is a data scaling law?**
+
 *   A simple formula that maps dataset size ($n$) to error.
 *   **Expectation**: Monotonic, logistic-like curves for generalization error (log-scale) vs. training data set size (log-scale), with distinct regions (small data, power-law, irreducible error).
 
 **Scaling laws hold on many different kinds of phenomena!**
+
 *   **Kaplan et al. (2020)**: Showed log-linear relationships between test loss and:
     *   Compute (PF-days)
     *   Dataset Size (tokens)
@@ -124,11 +134,13 @@ This section delves into empirical scaling behaviors of LLMs, focusing on data, 
 #### [0:05] Conceptual Foundations of Data Scaling Laws
 
 **Q: Why do scaling laws show up?**
+
 *   We expect error to be monotonic (more data = less error).
 *   **Q: But why is it a power law / linear in log-log?**
 *   **A**: Estimation error naturally decays polynomially.
 
 **Toy Example: Mean Estimation**
+
 *   **Input**: $x_1, \dots, x_n \sim N(\mu, \sigma^2)$
 *   **Task**: Estimate the average, $\hat{\mu} = \frac{1}{n} \sum x_i$.
 *   **Error**: The expected squared error is $E[(\hat{\mu} - \mu)^2] = \frac{\sigma^2}{n}$.
@@ -138,6 +150,7 @@ This section delves into empirical scaling behaviors of LLMs, focusing on data, 
 *   **Generalization**: Any polynomial rate $1/n^\alpha$ is a scaling law.
 
 **Detour: Scaling Laws for (Nonparametric) Learning**
+
 *   Neural nets can approximate arbitrary functions. Let's consider estimating a function $f(x)$ where $x_i$ are uniformly distributed in a 2D unit box, and $y_i = f(x_i) + N(0,1)$.
 *   **Approach**: Cut the 2D space into boxes of length $n^{-1/4}$.
 *   **Estimation Error**: Informally, we have $\sqrt{n}$ boxes, each getting $\sqrt{n}$ samples. The error is approximately $1/\sqrt{n}$ (plus other smoothness terms).
@@ -146,6 +159,7 @@ This section delves into empirical scaling behaviors of LLMs, focusing on data, 
 *   **Takeaway**: "Nonparametric" learning has dimension-dependent scaling. The slope of the scaling law is related to the intrinsic dimensionality of the data.
 
 **Scaling Law Exponents: An Intriguing Mystery**
+
 *   We expect "nice round numbers" for the slope (e.g., -1 or -0.5) based on simple models.
 *   **Empirical Findings**:
     *   Machine Translation (Hestness et al.): -0.13
@@ -154,6 +168,7 @@ This section delves into empirical scaling behaviors of LLMs, focusing on data, 
 *   These exponents are much slower than expected. This suggests that the "effective" dimensionality of the learning problem for neural networks is very high.
 
 **Intrinsic Dimensionality Theory of Data Scaling Laws**
+
 *   **Argument (Bahri 2021)**:
     1.  Scaling laws arise due to polynomial rates of learning $1/n^\alpha$.
     2.  Scaling argument $\alpha$ is closely connected to the intrinsic dimensionality of the data.
@@ -162,6 +177,7 @@ This section delves into empirical scaling behaviors of LLMs, focusing on data, 
 #### [0:05] Other Data Scaling Laws
 
 Data scaling laws are useful for making engineering decisions.
+
 *   **Related Question**: How does dataset *composition* affect performance?
     *   **Kaplan et al.** showed that data composition affects the *offset* of the scaling law, not the *slope*.
     *   **Implication**: To pick an optimal data mixture, you can run experiments on small models and extrapolate.
@@ -179,6 +195,7 @@ Data scaling laws are useful for making engineering decisions.
     *   **Example (CMU folks)**: Showed how to balance quality with repetition rate using scaling laws.
 
 **Recap: Data Scaling Laws**
+
 *   Remarkably linear relationship between log-data size and log-error.
 *   Holds across domains and models.
 *   Theory understanding: Similar to generalization bounds (mean estimation example).
@@ -191,6 +208,7 @@ Data scaling laws are useful for making engineering decisions.
 Now, let's shift to **model scaling**, which is often more mysterious.
 
 **Our Motivation**: How can we efficiently design huge LLMs?
+
 *   **Choices**: LSTMs vs. Transformers, Adam vs. SGD, etc.
 *   **Resource Allocation**: How should we allocate limited resources?
     *   Train models longer vs. train bigger models?
@@ -200,44 +218,52 @@ Now, let's shift to **model scaling**, which is often more mysterious.
 #### [0:05] Hyperparameter Questions
 
 We'll consider some of these choices in the context of the classic Kaplan scaling paper.
+
 1.  Architecture
 2.  Optimizer
 3.  Aspect ratio / depth
 4.  Batch size
 
 **1. Architecture: Transformers vs. LSTMs**
+
 *   **Q**: Are transformers better than LSTMs?
 *   **Brute force way**: Spend tens of millions to train an LSTM GPT-3.
 *   **Scaling law way**: Train LSTMs and Transformers across various compute levels.
     *   **Observation**: Transformers consistently outperform LSTMs with a constant factor gap in compute efficiency (e.g., 15x more efficient). This gap holds across different numbers of layers.
 
 **Many Architectures (Tay et al.)**
+
 *   **Cross-architecture scaling (Tay et al., Google)**: Compared many architectures (ALBERT, DConv, Funnel, Transformer-GLU, LCconv, MLP Mixer, MoS Transformer, Switch Transformer, Universal Transformer) against a Transformer baseline.
 *   **Method**: Scaled each architecture across different FLOPs budgets and plotted negative log-perplexity.
 *   **Observation**: Only architectures like Gated Linear Units (GLU) and Mixture of Experts (MoE) (e.g., Switch Transformer) consistently beat the Transformer baseline. This provides evidence for which architectures are worth scaling up.
 
 **2. Optimizer Choice**
+
 *   **Q**: What about Adam vs. SGD?
 *   **Hestness et al. (2017)**: Compared SGD and Adam for Recurrent Highway Networks (RHNs, pre-transformers).
 *   **Observation**: Similar to architecture choice, there's a constant factor gap in compute effectiveness between Adam and SGD. The slopes of the scaling curves are similar, but Adam provides a better offset (lower loss for the same compute).
 
 **3. Depth/Width: Number of Layers**
+
 *   **Q**: Does depth or width make a huge difference?
 *   **Kaplan et al.** analysis shows that while 1 layer performs significantly worse, models with 2 or more layers have diminishing returns beyond $10^7$ parameters.
 *   **Insight**: There's a wide basin of approximately optimal depth/width ratios, rather than a sharp optimal point.
 
 **Depth/Width: But not all parameters are made equal**
+
 *   **Observation**: Embedding layer parameters don't behave the same as non-embedding parameters.
     *   If embedding parameters are included in the total parameter count, the scaling law becomes distorted (bends over).
     *   If only non-embedding parameters are considered, the scaling law is much cleaner.
 *   **Related Work**: Recent papers on scaling laws for mixtures of experts also explore how different types of parameters contribute to scaling.
 
 **Do hyperparameters and other Transformer layers scale equally?**
+
 *   **Kaplan et al.** also analyzed the impact of aspect ratios (Feed-Forward Ratio, Attention Head Dimension) on performance.
 *   **Observation**: The shape of the loss curve (loss increase vs. aspect ratio) remains similar across different model sizes (50M, 274M, 1.5B parameters).
 *   **Implication**: You can tune aspect ratios on small models, and the optimal range will likely transfer to larger models. This highlights the importance of being "scale-aware" in hyperparameter tuning.
 
 **4. Batch Size: Critical Batch Size**
+
 *   **Batch size** is known to have strong diminishing returns past a certain point.
 *   **Critical batch size**: The minimum number of examples for target loss / minimum number of steps for target loss.
 *   **Perfect Scaling**: When batch size is smaller than the noise scale, increasing batch size is almost equivalent to taking more gradient steps. This is desirable for parallel processing.
@@ -247,11 +273,13 @@ We'll consider some of these choices in the context of the classic Kaplan scalin
     *   **Practical Implication**: Training reports (e.g., Llama 3) often show increasing batch size during training as loss decreases.
 
 **Batch Size: Selecting the Optimal Batch**
+
 *   **Q**: As we increase both compute and model size, how should we scale training?
 *   **Kaplan et al.** analysis shows that for a given compute budget, the number of total steps can remain relatively constant while batch sizes increase.
 *   **Good news for data parallel processing**: This allows for efficient scaling of training.
 
 **5. Learning Rates: muP and Scale-Aware LR Choices**
+
 *   **Problem**: If we naively scale up, the optimal learning rate depends on scale.
     *   **Standard Practice (left plot)**: As model width increases, the optimal learning rate shifts to the left (smaller values).
 *   **Solution**: We need scale-aware initialization and learning rate scaling.
@@ -289,6 +317,7 @@ We'll consider some of these choices in the context of the classic Kaplan scalin
 #### [0:05] One Important Use of Scaling Laws
 
 **Q**: Do we need more data or bigger models?
+
 *   **Context**: Historically, compute was the limiting resource, not data. The question was how to optimally spend a fixed FLOPs budget.
 *   **Joint Data-Model Scaling Laws**: Describe how data and model size relate to error.
     *   **Rosenfeld et al. (2020) & Kaplan et al. (2020)**: Proposed functional forms where error is a sum of terms decaying polynomially with data ($n^{-\alpha}$) and model size ($m^{-\beta}$), plus an irreducible error term ($C$).
@@ -297,6 +326,7 @@ We'll consider some of these choices in the context of the classic Kaplan scalin
     *   These functional forms, while somewhat ad-hoc, provide surprisingly good fits to the observed data-model joint error landscape.
 
 **Model-Data Joint Scaling is Accurate**
+
 *   **Rosenfeld et al.** demonstrated that by fitting scaling exponents on small data and small models, they could accurately predict the performance of much larger models and datasets.
 *   **Method**: Train models on a small subset of the data-model space (e.g., small models, small data), fit the joint scaling law, and extrapolate to predict performance for larger models and datasets.
 *   **Accuracy**: The predictions (y-axis) closely match the real values (x-axis) for both ImageNet and WikiText-103, showing high accuracy of joint extrapolation.
@@ -320,6 +350,7 @@ We'll consider some of these choices in the context of the classic Kaplan scalin
 *   **Implication**: Precisely determining the "optimal" scaling laws is challenging and sensitive to methodology.
 
 **Main Difference - Accounting for LR Schedules**
+
 *   One key reason for the discrepancy between Kaplan's and Chinchilla's estimates lies in how they accounted for learning rate schedules.
 *   **Cosine Learning Rate Schedules**: Models are typically trained with cosine learning rate schedules, which involve a warm-up phase, a decay phase, and a cool-down phase.
 *   **Problem**: You cannot truncate a cosine learning rate schedule early and expect the same model quality as a full run. A model trained for a shorter duration with a truncated schedule is not equivalent to a model trained from scratch with a schedule designed for that shorter duration.
@@ -344,6 +375,7 @@ Chinchilla authors suggested 3 ways of fitting scaling laws, which mostly (minus
     *   **Observation**: This method is messier and yields different coefficients (e.g., 0.73 for $a$ and 0.27 for $b$ in Kaplan's initial work).
 
 **Fun Addendum - Errors in Chinchilla Method 3**
+
 *   **Discovery**: Some authors (Besiroglu et al., 2024) later found that Method 3 in the original Chinchilla paper was likely flawed.
 *   **Process**: They performed data forensics, recovered the raw data, and re-did the fit.
 *   **Result**: The re-fit yielded results more consistent with Methods 1 and 2. The original fit had non-zero mean residuals, indicating a biased fit. Correcting this bias brought Method 3's estimates in line with the other two methods.

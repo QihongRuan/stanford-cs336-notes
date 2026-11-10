@@ -50,6 +50,7 @@ $$
 $$
 
 The key steps for DPO are:
+
 1. Make a nonparametric assumption (policy class is the set of all functions).
 2. Parametrize reward $r$ via the policy.
 3. Optimize the reward via supervised losses (which in turn, optimizes the policy).
@@ -73,6 +74,7 @@ For a while, DPO was the dominant approach for post-training in open-source mode
 ### [03:19] Variants
 
 A flood of DPO variants emerged, often denoted as "*PO". Two notable variants are:
+
 - **SimPO (Simple Preference Optimization):** Normalizes the update size by the length of responses and removes the reference policy. While losing the mathematical argument of DPO, it aligns with the "upweight good, downweight bad" intuition.
 - **Length Normalized DPO:** Normalizes by length without removing the reference policy.
 
@@ -107,6 +109,7 @@ The core idea behind RLVR is to leverage the power of RL in domains where object
 ## [13:30] Lecture Today
 
 The lecture will proceed in two parts:
+
 1.  **Core Algorithms:** A detailed discussion of PPO, its transformation into GRPO, and various GRPO variants.
 2.  **Case Studies:** An examination of three prominent open models (DeepSeek R1, Kimi 1.5, and Qwen 3) that utilize RLVR, providing practical examples of the concepts discussed.
 
@@ -151,6 +154,7 @@ PPO is a very successful RL algorithm, used in various environments from simple 
 ### [19:35] PPO - Idealization (?) for Language Models
 
 Applying PPO to language models involves a complex setup:
+
 - **SFT Model:** A supervised fine-tuned model.
 - **Reward Model:** Learned from human feedback.
 - **Value Model:** A neural network that estimates expected rewards, used for variance reduction in advantage estimation.
@@ -163,6 +167,7 @@ This intricate machinery is necessary for PPO to work in the context of language
 ### [20:13] PPO in Practice - An Implementation
 
 The lecturer refers to an implementation of PPO from AlpacaFarm, which has been somewhat tested. The code snippet shows the outer loop of PPO, which involves:
+
 1.  Getting rollouts (trajectories) from the current policy.
 2.  Computing losses based on these rollouts.
 3.  Performing backpropagation and gradient steps (with clipping).
@@ -173,18 +178,21 @@ This structure is common in many RL algorithms.
 ### [21:17] PPO in Practice - Loss Computation
 
 The loss computation in PPO involves two main parts:
+
 1.  **Value Function Loss:** Measures how close the predicted value from the value function is to the actual returns (rewards). This helps the value function provide accurate variance reduction.
 2.  **Policy Loss:** Computes the PPO-Clip objective, comparing the current policy's log probabilities to the reference policy's log probabilities, weighted by advantages, and clipped within a range (e.g., $\pm 0.2$).
 
 ### [22:15] PPO in Practice - Rollouts
 
 Rollouts involve generating sequences from the current policy. This is where the complexity arises:
+
 -   **Tokenization:** Different models (policy, reward, value) might have different tokenizers, requiring retokenization.
 -   **Evaluation:** Feeding rollouts into the models to get log probabilities, rewards, and values.
 
 ### [22:41] PPO in Practice - Reward Shaping
 
 Reward shaping is often used to make the reward signal more amenable to RL algorithms. In PPO, this involves:
+
 -   **Per-token KL penalty:** A regularization term computed for each token, encouraging the policy not to deviate too much from the reference policy.
 -   **Last-token full reward:** The main task reward (e.g., success/failure) is applied only at the last token of the sequence.
 
@@ -197,6 +205,7 @@ Instead of directly using rewards, PPO uses generalized advantage estimation (GA
 ### [26:59] What to Expect in PPO?
 
 In a contextual bandit setting like language model generation, PPO typically shows:
+
 -   Increasing overall rewards.
 -   Increasing reward model scores.
 -   Negative KL rewards (as the policy deviates from the reference).
@@ -208,6 +217,7 @@ The complexities of PPO (complicated implementation, memory-hungry value model) 
 ## [28:58] New Kid on the Block: GRPO
 
 GRPO (Group Relative Policy Optimization) aims to simplify PPO while retaining its benefits.
+
 -   **Start with PPO:** GRPO builds upon the core ideas of PPO.
 -   **Remove Value Function / Advantage Computation:** GRPO eliminates the need for a separate value function and complex advantage estimation.
 -   **Calculate Advantage as "z-score within group":** The advantage for a given response is calculated as its z-score (reward minus mean, divided by standard deviation) relative to other responses within the same group (e.g., responses to the same prompt).
@@ -233,6 +243,7 @@ In the online case (rollout + immediate update), GRPO simplifies to a policy gra
 ### [30:50] GRPO is Simple (Thanks to Lack of Value Function)
 
 GRPO implementations are typically much simpler than PPO because they don't require a value function. The core steps involve:
+
 -   Compute reward for each rollout.
 -   Mean/variance normalization per group.
 -   Compute KL term.
@@ -241,6 +252,7 @@ GRPO implementations are typically much simpler than PPO because they don't requ
 ### [31:10] GRPO Doesn't Use a "Valid" Baseline
 
 Recent analyses of GRPO have identified two mathematical "issues":
+
 1.  **Division by Standard Deviation:** Dividing by the standard deviation in the advantage calculation is not a valid baseline that preserves unbiasedness. This breaks the theoretical guarantee of the policy gradient theorem.
 2.  **Length Normalization:** The GRPO objective implicitly normalizes rewards by the length of the output. This creates an incentive for the model to produce very long responses when incorrect (to minimize negative reward per token) and very short responses when correct (to maximize positive reward per token). This leads to models "BS-ing" as aggressively as possible.
 
@@ -259,6 +271,7 @@ The lecture will now examine three representative open models that utilize RLVR:
 ### [33:10] DeepSeek R1
 
 DeepSeek R1 is a paper that launched a significant social phenomenon, demonstrating O1-level reasoning performance with a surprisingly simple RL recipe.
+
 -   **Performance:** Achieves performance exceeding OpenAI O1.
 -   **RL Recipe:** The RL recipe is remarkably simple, lacking complex search or process reward models. This challenged the prevailing belief that such complexities were necessary for reasoning models.
 -   **Insights:** Provides insights into the interaction between SFT and RL.
@@ -270,6 +283,7 @@ DeepSeek R1 builds on the results of GRPO from DeepSeekMath. However, unlike Dee
 ### [34:20] Controlled Setting - R1 Zero
 
 R1 Zero is a controlled setting where a pre-trained model (DeepSeek V3) is directly fine-tuned with GRPO on math-ish tasks.
+
 -   **Rewards:** Uses accuracy rewards (binary correct/incorrect) and format rewards (to ensure CoTs are within thinking tags).
 -   **Data:** Proprietary math-ish tasks (not public).
 -   **Results:** Achieves performance close to OpenAI O1 on various benchmarks (AIME, MATH, GPQA, LiveCodeBench, CodeForces) by simply applying GRPO on top of the base model.
@@ -277,16 +291,19 @@ R1 Zero is a controlled setting where a pre-trained model (DeepSeek V3) is direc
 ### [35:00] Interesting Phenomena
 
 R1 Zero exhibits two interesting phenomena:
+
 1.  **Longer CoTs during training:** The length of the CoT increases predictably during RL training. The authors interpret this as the model learning to solve harder problems by thinking harder.
 2.  **"Aha" moment:** The model learns to backtrack and correct its reasoning, which the authors refer to as an "aha" moment.
 
 However, follow-up analyses (e.g., in the Dr. GRPO paper) suggest these phenomena might be overstated:
+
 -   **Length due to biased objective:** The increasing CoT length might be an artifact of the biased GRPO objective rather than an inherent learning process.
 -   **Base model already has 'aha':** The "aha" moments might already be present in the base model (DeepSeek V3) and not necessarily an emergent property of RL.
 
 ### [36:00] Pushing Performance Further - R1
 
 To achieve even better performance, R1 extends R1 Zero by incorporating additional techniques:
+
 -   **SFT initialization:** Fine-tuning the base model with long CoTs from an undisclosed source to prevent unstable cold start of RL training. This also provides interpretability benefits.
 -   **Language consistency reward for CoT:** An additional reward to prevent the CoT from language mixing (e.g., switching between English and Chinese).
 -   **Non-verifiable rewards (in stage 2):** Using RLHF for general-purpose alignment.
@@ -306,6 +323,7 @@ The RL step in R1 is similar to R1 Zero, but with an additional language consist
 ### [38:20] SFT/RLHF
 
 The final stage involves layering on the usual post-training pipeline:
+
 -   **SFT step:** Fine-tuning on a mix of reasoning data (non-verifiable tasks, judged by V3) and non-reasoning data (SFT dataset).
 -   **RLHF step:** Reusing the R1 Zero-style reasoning RLHF pipeline, still using GRPO for RLHF.
 
@@ -320,6 +338,7 @@ R1 also shows that its generated CoT traces can be used to distill reasoning cap
 ### [40:00] Other, Relevant Observations
 
 R1 also explored other approaches that did not pan out:
+
 -   **PRMs (Process Reward Models):** These models provide intermediate feedback on each step of a CoT. While conceptually powerful, R1 found that PRMs did not significantly improve performance compared to outcome-based rewards.
 -   **MCTS (Monte Carlo Tree Search):** Inspired by AlphaGo, MCTS involves searching through possible reasoning steps. R1 found that MCTS did not yield better results than simple RL, suggesting that the search space for reasoning might be ill-defined or too complex for current methods.
 
@@ -328,12 +347,14 @@ These "negative" results highlight the effectiveness and simplicity of the GRPO-
 ### [40:50] Kimi 1.5
 
 Kimi 1.5 is another contemporaneous model that achieves similar results to R1 using RLVR.
+
 -   **Released at the same time as R1:** Allows for a comparison of parallel developments.
 -   **Beats O1 using RL:** Demonstrates strong performance.
 
 ### [41:00] Long CoT Reasoning Strategy
 
 Kimi 1.5 employs a similar strategy to R1:
+
 -   **Dataset Construction:** Filters for difficulty using a "best-of-N" strategy.
 -   **SFT:** Fine-tuning with long CoTs.
 -   **RL:** Uses its own policy gradient loss.
@@ -341,6 +362,7 @@ Kimi 1.5 employs a similar strategy to R1:
 ### [41:30] Data Curation + SFT
 
 Kimi 1.5's data curation involves:
+
 -   **Standard coverage across math-style settings:** Balances questions across different domains (math, STEM, competitions).
 -   **Exclude multiple choice / true false (false positives):** Focuses on verifiable answers that are not easily guessable.
 -   **Select only examples that fail best-of-8:** Filters out problems that are too easy for the model.
@@ -350,12 +372,14 @@ SFT is described as "prompt engineering," suggesting a focus on crafting effecti
 ### [42:30] Kimi RL Algorithm + Regularization
 
 The Kimi RL algorithm is derived from a DPO-type derivation, but it's closer to a baselined policy gradient with regularization.
+
 -   **Objective:** Maximizes reward while minimizing KL divergence from the base policy.
 -   **RL Algorithm:** Uses a baselined policy gradient with a squared loss regularization term instead of clipping. This is analogous to GRPO but without the standard deviation normalization.
 
 ### [43:15] Length Control in Kimi
 
 Kimi 1.5 explicitly addresses the issue of CoT length, recognizing its impact on inference cost.
+
 -   **Length Reward:** For each batch, a length reward is calculated based on the minimum and maximum CoT lengths.
 -   **Incentives:** The reward incentivizes correct answers to be as short as possible and incorrect answers to be around the average length. This aims to compress CoTs while maintaining performance.
 -   **Training Schedule:** This length reward is only enabled later in training to avoid stalling the RL process in early stages.
@@ -368,6 +392,7 @@ Kimi 1.5 explicitly addresses the issue of CoT length, recognizing its impact on
 ### [44:30] RL Infra
 
 Kimi 1.5 provides details on its RL infrastructure, highlighting challenges in scaling RL:
+
 -   **On-policy rollouts:** Inference is slow.
 -   **Switching from training to rollouts:** Requires frequent data transfer between different frameworks.
 -   **Long CoTs:** Can lead to uneven batch sizes.
@@ -385,6 +410,7 @@ Qwen 3 is the most recent and modern of the RL for reasoning models. It builds u
 ### [45:40] Overall Picture
 
 Qwen 3's pipeline is similar to R1 and Kimi 1.5:
+
 -   **Stage 1: Long-CoT Cold Start:** SFT with long CoTs.
 -   **Stage 2: Reasoning RL:** RL training for reasoning.
 -   **Stage 3: Thinking Mode Fusion:** A new technique to control CoT length.
@@ -398,6 +424,7 @@ Qwen 3's data curation and RL training are similar to Kimi 1.5, with filtering f
 ### [46:20] Qwen 3 Specific New Stuff
 
 Qwen 3 introduces "Thinking Mode Fusion" to control the length of the CoT.
+
 -   **Mixed Training Data:** The model is fine-tuned with data that includes both "thinking mode" (with `<think>` tags) and "non-thinking mode" (with `<no_think>` tags).
 -   **Inference Control:** During inference, the model can be prompted to either generate a CoT (by including `<think>` tags) or directly provide an answer (by including `<no_think>` tags).
 -   **Early Stopping:** A special string can be inserted to terminate the thinking process early, allowing for precise control over the CoT length.
@@ -409,6 +436,7 @@ Thinking Mode Fusion allows for flexible test-time scaling. By setting a maximum
 ### [47:30] Composition of the Different Stages
 
 Qwen 3 provides a detailed ablation study, showing the performance at each stage of its pipeline.
+
 -   **Reasoning RL:** Improves performance on general tasks and instruction following.
 -   **Thinking Mode Fusion:** Further enhances performance, especially for math and coding.
 -   **General RL:** RLHF improves performance across the board.

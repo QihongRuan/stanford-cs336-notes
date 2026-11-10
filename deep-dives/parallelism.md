@@ -5,6 +5,7 @@
 This is a crucial observation. While FSDP (Fully Sharded Data Parallel, equivalent to ZeRO-3) does transfer more data, its efficiency comes from **overlapping communication with computation**. The raw communication volume is a misleading metric for wall-clock time if the communication can be hidden behind computation.
 
 Let's first confirm the communication volume. Let $\Psi$ be the number of model parameters and $N_d$ be the number of devices.
+
 *   **Standard DDP:** Performs one `all_reduce` on the gradients per step. An `all_reduce` is equivalent to a `reduce_scatter` followed by an `all_gather`. The total data sent and received by each GPU is approximately $2 \times |\Psi|$ bytes.
 *   **FSDP (ZeRO-3):**
     1.  **Forward Pass:** One `all_gather` for each layer's parameters before its computation. Total over all layers: $|\Psi|$ bytes.
@@ -43,6 +44,7 @@ The communication latency is hidden if the time to compute is greater than or eq
 $$ T_{\text{compute}}(L) \ge T_{\text{comm}}(L+1) $$
 
 Let's model these times:
+
 *   **Communication Time:** A common model for collective communication is $T_{\text{comm}}(M) = \alpha + \beta M$, where $\alpha$ is the latency overhead, $M$ is the message size in bytes, and $\beta$ is the reciprocal of the effective bandwidth. For an `all_gather` of a layer with $|\Psi_L|$ parameters (at 2 bytes/param), $M = 2|\Psi_L|$.
 *   **Computation Time:** This is the number of floating-point operations (FLOPs) for the layer, divided by the GPU's effective TFLOPS. $T_{\text{compute}}(L) = \frac{\text{FLOPs}(L)}{\text{TFLOPS}_{\text{effective}}}$.
 
@@ -145,6 +147,7 @@ def mlp_forward(X, W_up_shard, W_down_shard, tp_group):
 **Backward Pass**
 
 The backward pass mirrors this logic. The gradient `dY` is replicated. The backward pass of an `all_reduce` is an identity operation, so each GPU starts with `dY`.
+
 1.  The gradient for the row-parallel layer (`dG_shard`) will be sharded, which is exactly what's needed as input for the backward pass of the GELU and the column-parallel layer.
 2.  The gradient with respect to the input, `dX`, will be a partial sum on each GPU, requiring a final `all_reduce` to be correctly accumulated.
 
@@ -155,6 +158,7 @@ This elegant pairing avoids materializing the full $s \times 4h$ intermediate te
 This is a classic systems trade-off between minimizing pipeline stalls and maximizing single-device performance. We can find the optimal number of microbatches, $m_{opt}$, by creating a simple cost model for the total execution time and minimizing it.
 
 Let's define our variables:
+
 *   $p$: Number of pipeline stages (GPUs).
 *   $B$: Global batch size.
 *   $m$: Number of microbatches.
@@ -164,6 +168,7 @@ Let's define our variables:
 
 The time to process one microbatch of size $b$ on a single GPU, $T_{step}(b)$, is not perfectly linear. It includes fixed overheads (kernel launches, memory allocation) and a compute component. A simple but effective model is:
 $$ T_{step}(b) = T_{ov} + T_{comp} \cdot b $$
+
 *   $T_{ov}$: The fixed overhead per microbatch, independent of its size.
 *   $T_{comp}$: The compute time per single example in the microbatch.
 
@@ -183,6 +188,7 @@ $$ T_{wall}(m) = m T_{ov} + m T_{comp} \frac{B}{m} + (p-1)T_{ov} + (p-1)T_{comp}
 $$ T_{wall}(m) = m T_{ov} + T_{comp} B + (p-1)T_{ov} + \frac{(p-1)T_{comp}B}{m} $$
 
 The term $T_{comp} B$ is the total compute time for the batch, which is constant. The term $(p-1)T_{ov}$ is also constant with respect to $m$. The parts that vary with $m$ are:
+
 *   $m T_{ov}$: Total overhead cost. This increases linearly with $m$ (more, smaller microbatches means more overhead).
 *   $\frac{(p-1)T_{comp}B}{m}$: Total bubble cost. This is the compute work of $(p-1)$ microbatches that is not parallelized. It decreases as $m$ increases.
 

@@ -17,10 +17,12 @@ However, this still requires a full pass over the vector $\boldsymbol{x}$ to fin
 **2. Deriving the Online Update Rule**
 
 The online algorithm maintains running statistics. Let's say we have processed a block of inputs $\boldsymbol{x}^{(1)} = [x_1, ..., x_k]$ and computed their partial softmax statistics:
+
 - Running maximum: $m^{(1)} = \max(x_1, ..., x_k)$
 - Running denominator: $l^{(1)} = \sum_{j=1}^{k} e^{x_j - m^{(1)}}$
 
 Now, a new block of inputs $\boldsymbol{x}^{(2)} = [x_{k+1}, ..., x_N]$ arrives. We can compute its local statistics:
+
 - Local maximum: $m^{(2)} = \max(x_{k+1}, ..., x_N)$
 - Local denominator: $l^{(2)} = \sum_{j=k+1}^{N} e^{x_j - m^{(2)}}$
 
@@ -90,6 +92,7 @@ A: This is a classic example of trading compute for memory bandwidth, a winning 
 
 Let's analyze the memory requirements for a standard backward pass. The attention output $O$ is computed as $O = P V$, where $P = \text{softmax}(S)$ and $S = \frac{QK^T}{\sqrt{d_k}}$.
 To compute the gradients with respect to the inputs ($dQ, dK, dV$), the chain rule requires the intermediate attention matrix $P$.
+
 - $dV = P^T dO$
 - $dP = dO V^T$
 - $dS = \text{grad_softmax}(P, dP)$
@@ -99,6 +102,7 @@ To compute the gradients with respect to the inputs ($dQ, dK, dV$), the chain ru
 The key bottleneck is that to compute $dP, dS, dQ, dK$, we need to have the $N \times N$ attention matrix $P$ (where $N$ is sequence length) that was computed during the forward pass.
 
 **Memory Cost of Storing P:**
+
 - The matrix $P$ has dimensions $N \times N$.
 - Storing it in FP32 requires $4 N^2$ bytes.
 - For a typical context length of $N=4096$, this is $4 \times (4096)^2 \approx 67$ MB.
@@ -109,6 +113,7 @@ The key bottleneck is that to compute $dP, dS, dQ, dK$, we need to have the $N \
 FlashAttention avoids this $O(N^2)$ memory cost by not storing the full attention matrix $P$. Instead, during the backward pass, it recomputes the necessary blocks of $P$ on-the-fly.
 
 **The Backward Pass Algorithm:**
+
 1.  The gradients $dO$ and the original inputs $Q, K, V$ are read from HBM.
 2.  The backward pass iterates through blocks of $Q, K, V$ in the same way as the forward pass.
 3.  For each block, it recomputes the corresponding block of the score matrix $S_{ij} = Q_i K_j^T$.
@@ -127,12 +132,14 @@ Let's analyze the costs for a sequence of length $N$ and head dimension $d_k$.
 | **Compute (FLOPs)** | Uses stored $P$. | Recomputes $S=QK^T$: $O(N^2 d_k)$ |
 
 **Analysis:**
+
 - **Memory Savings:** FlashAttention reduces the HBM memory requirement for intermediate activations from $O(N^2)$ to $O(N)$. For $N=4k, d_k=64$, this is a reduction from $\approx 67$MB to $\approx 32$KB—a >2000x reduction. This is the primary win.
 - **Memory Bandwidth Trade-off:** Instead of one large $O(N^2)$ read of matrix $P$, FlashAttention performs $O(Nd_k)$ reads of $Q$ and $K$. Since typically $d_k \ll N$ (e.g., $64 \ll 4096$), the amount of data read from HBM is significantly less: $O(Nd_k) \ll O(N^2)$.
 - **Compute Cost:** The price is re-doing the $QK^T$ matrix multiplication, which adds $O(N^2 d_k)$ FLOPs.
 
 **Why is this a win?**
 The Roofline model tells us that performance is limited by either compute throughput or memory bandwidth.
+
 - **Standard Attention:** The need to read the massive $N \times N$ matrix $P$ from slow HBM makes the backward pass severely **memory-bound**. The GPU's powerful compute units spend most of their time idle, waiting for data.
 - **FlashAttention:** By recomputing, the algorithm trades a massive HBM read for extra on-chip computation. Since modern GPUs have a very high compute-to-memory-bandwidth ratio, this is an excellent trade. The additional FLOPs can be executed quickly by the SMs using data that is already in registers or SRAM. The algorithm becomes much more **compute-bound**, allowing it to run closer to the GPU's peak theoretical throughput.
 
@@ -158,6 +165,7 @@ __global__ void add_kernel(float* x, float* y, float* out, int N) {
     }
 }
 ```
+
 - **Responsibility:** The programmer is responsible for the index arithmetic (`blockIdx.x * ...`). This logic maps the 3D hierarchy of grids, blocks, and threads to a linear index in the tensor.
 - **Memory Access:** Each thread issues its own load (`x[i]`, `y[i]`) and store (`out[i]`). For the hardware to perform a *coalesced read* (efficiently loading a contiguous chunk of memory for a whole warp of 32 threads), the programmer must ensure that `threadIdx.x`, `threadIdx.x+1`, ..., `threadIdx.x+31` map to contiguous memory addresses. While simple for this `add_kernel`, it becomes complex for strided, transposed, or tiled access patterns. The compiler has limited visibility; it only sees that a single thread `i` is accessing `x[i]`.
 
@@ -185,6 +193,7 @@ def add_kernel(x_ptr, y_ptr, out_ptr, N, BLOCK_SIZE: tl.constexpr):
     out = x + y
     tl.store(out_ptr + offsets, out, mask=mask)
 ```
+
 - **Responsibility:** The programmer defines a block of work. The `tl.arange` call creates a symbolic vector of offsets. The programmer thinks "my program handles the chunk of data from `block_start` to `block_start + BLOCK_SIZE`".
 - **Memory Access:** The key is `tl.load(x_ptr + offsets, ...)`. The Triton compiler sees that the program intends to load a contiguous block of `BLOCK_SIZE` elements. This high-level, declarative information is a gift to the compiler.
 
